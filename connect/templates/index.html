@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+<title>{{name}}</title>
+{% block body %}
+<div class="limiter">
+		<div class="container-table100">
+			<div class="wrap-table100">
+				<div id='mast' class="table100 ver1 m-b-110">
+					<table  style='overflow:scroll'>
+    				<thead class='text-center' style='text-transform:uppercase;font-size:12px'>
+                        <tr class="head">
+                            <th rowspan='1' class='headcol'style='white-space:nowrap; width:300px'>SCH.NO. Full Name</th>
+                             {% for r in subject %}
+                                <th colspan='{{cols}}'>{{subject[r]}}</th>
+                             {% endfor %}
+                        </tr>
+                        <tr>
+                            <th rowspan='1' class='headcol' style='white-space:nowrap; width:300px'>SCH.NO. Full Name</th>
+                             {% for r in subject %}
+                                {% for q in ca %}
+                                <th>{{ca[q]}}</th>
+                                {% endfor %}
+                                <th>SUM</th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    
+                    <tbody style='font-size:10px; color:black'>
+                        {% for s in student %}
+                                <tr>
+                                    <th class='headcol' style='white-space:nowrap; width:300px'>{{student[s][0]}} {{student[s][1]}}</th>
+                                    {% for r in subject %}
+                                        {% for q in ca %}
+                                        {% set er = 'AB'+s+'CD'+r+'EF'+q %}
+                                            <td class='column100'>{{data[er]}}</td>
+                                        {% endfor %}
+                                        <td class='column100'>{{name[0][s][r]}}</td>
+                                    {% endfor %}
+                                </tr>
+                            {% endfor %}
+                    </tbody>
+					</table>
+					<div class='row'>
+					{{immg | safe}}
+					</div>
+				</div>
+            </div>
+        </div>
+        <div class="container-table100">
+			<div class="wrap-table100">
+				<div class="table100 ver1 m-b-110">
+				{{table | safe}}
+				</div>
+          </div>
+        </div>
+        <div class="container-table100">
+			<div class="wrap-table100">
+				<div class="table100 ver1 m-b-110">
+				{{table1 | safe}}
+				</div>
+          </div>
+        </div>
+
+ </div>
+{% endblock %}
