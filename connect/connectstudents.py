@@ -281,3 +281,40 @@ class Con(object):
             conn.close()
         except sqlite3.Error as e:
             print(e)    
+        
+        
+    def getTeller(self, session, student, tex):
+        '''
+        get number of student in class
+        '''
+        db = 'student_pay'+str(session)
+              
+        sql = "SELECT sum(amount) as amount FROM "+db+" WHERE `studentID` = '"+student+"' and `teller` = '"+tex+"'GROUP BY studentID "
+        
+        try:
+            conn = sqlite3.connect(self.dbs)
+            conn.row_factory = lambda C, R: {c[0]: R[i] for i, c in enumerate(C.description)}
+            c = conn.cursor()
+            c.execute(sql)
+            return c.fetchone()
+            conn.close()
+        except sqlite3.Error as e:
+            print(e)
+            
+    def getNonTeller(self, session, student, tex):
+        '''
+        get number of student in class
+        '''
+        db = 'student_pay'+str(session)
+              
+        sql = "SELECT sum(amount) as amount FROM "+db+" WHERE `studentID` != '"+student+"' and `teller` = '"+tex+"'GROUP BY studentID "
+        
+        try:
+            conn = sqlite3.connect(self.dbs)
+            conn.row_factory = lambda C, R: {c[0]: R[i] for i, c in enumerate(C.description)}
+            c = conn.cursor()
+            c.execute(sql)
+            return c.fetchone()
+            conn.close()
+        except sqlite3.Error as e:
+            print(e)

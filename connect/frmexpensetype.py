@@ -1,12 +1,5 @@
 # -*- coding: utf-8 -*-
 """
-Created on Sat Oct 27 05:32:06 2018
-
-@author: CHARLES
-"""
-
-# -*- coding: utf-8 -*-
-"""
 Created on Thu Aug  9 12:04:50 2018
 
 @author: CHARLES

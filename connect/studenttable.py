@@ -5,25 +5,25 @@ Created on Sat Jul 28 13:30:41 2018
 @author: CHARLES
 """
 from connect import Db
+from connectdata import Dat
 
 class StudentTable():
     
-    def __init__(self, session=None , studentID=[], classID=[], classUnitID =[]):
+    def __init__(self, session=None , studentID=[], classID=[], classUnitID =[], group = None):
         #super(StudentTable, self).__init__()
         self.session = session
         self.studentID = studentID
         self.classID = classID
         self.classUnitID = classUnitID
-            
-    
+        self.group = group    
+        
     def classStudentMul(self):
         num = 0
         d = {}
         for a1 in self.classID:
             d = self.classStudentO(a1)
             num = int(num) + int(len(d))
-            
-            
+
         return [num, d]
     
     def classStudentO(self, a):
@@ -31,14 +31,48 @@ class StudentTable():
         d = self.pullStudentsID(self.session, allUnits)
         return d
     
+    def classUnitStudentFee(self, students):
+        ''' pull summary fees and payments of all students in a  class unit'''
+        ids = self.getIDs(students)
+        rep = Dat()
+        student_pay = rep.classUnitPay(self.session, ids, 0)
+        student_fee = rep.classUnitPay(self.session, ids, 2)
+        return [students, student_pay, student_fee]
+    
+    def classUnitStudentFeeDetails(self, students):
+        ''' pull summary fees and payment'''
+        ids = self.getIDs(students)
+        rep = Dat()
+        student_fee = rep.classUnitPay(self.session, ids, 3)
+        return [students, student_fee]
+    
+    def classUnitStudentPayDetails(self, students):
+        ''' pull summary fees and payment'''
+        ids = self.getIDs(students)
+        rep = Dat()
+        student_pay = rep.classUnitPay(self.session, ids, 1)
+        return [students, student_pay] 
+    
+    def classStudentSubject(self, students):
+        ''' pull summary fees and payment'''
+        ids = self.getIDs(students)
+        rep = Dat()
+        student_class = rep.classUnitSubject(self.session, ids)
+        print(student_class)
+        return [students, student_class] 
+    
     def classStudent(self):
+        ''' 
+        get all students from a class 
+        use
+        '''
         allUnits = self.getClassUnit(self.classID[0])
-        d = self.pullStudentsID(self.session, allUnits)
+        d = self.pullStudentsID(self.session, allUnits, self.group)
         return d
     
     def classStudents(self):
         allUnits = self.getClassUnit(self.classUnitID)
-        d = self.pullStudentsID(self.session, allUnits)
+        d = self.pullStudentsID(self.session, allUnits, self.group)
         return d
     
     def classAllStudent(self):
@@ -46,7 +80,7 @@ class StudentTable():
         return d
     
     def classAllExStudent(self):
-        d = self.pullStudentsAllID(self.session)
+        d = self.pullStudentsAllExID(self.session)
         return d
     
     def classAllCrStudent(self):
@@ -58,7 +92,7 @@ class StudentTable():
         return d
     
     def classUnitStudent(self):
-        d = self.pullStudentsID(self.session, self.classUnitID)
+        d = self.pullStudentsID(self.session, self.classUnitID, self.group)
         return d
     
     def classMoveStudent(self, session, moveclass, students):
@@ -94,12 +128,23 @@ class StudentTable():
             arr.append(h)
         return arr
     
-    def pullStudentsID(self, a, b=[]):
+    def pullStudentsID(self, a, b = [], c = None):
+
         self.a = a
         self.b = b
         termtable = 'student_class'+str(self.a)
         cn = Db()
-        students = cn.selectStudentClass(termtable, self.b)
+        try:
+            if c == 0:
+                students = cn.selectStudentClass(termtable, self.b)
+            elif c == 1:
+                students = cn.selectStudentClass(termtable, self.b, c)
+            elif c == 2:
+                students = cn.selectStudentClass(termtable, self.b, c)
+            else:
+                students = cn.selectStudentClass(termtable, self.b)
+        except:
+            students = cn.selectStudentClass(termtable, self.b)
         return students
     
     def pullStudentsAllID(self, a):
@@ -134,18 +179,36 @@ class StudentTable():
         self.a = a
         nm = ''
         g = Db()
-        for re in self.a:
-            si = g.selectn('datas', '', 1, {'id':re})
-            sii = g.selectn('datas', '', 1, {'id':si['subID']})
-            
-            nm = nm+sii['abbrv']+' '+si['abbrv']+' '
+        try:
+            for re in self.a:
+                si = g.selectn('datas', '', 1, {'id':re})
+                sii = g.selectn('datas', '', 1, {'id':si['subID']})
+                nm = nm+sii['abbrv']+' '+si['abbrv']+' '
+        except:
+            nm = 'Class Error'
             
         return nm
     
     def selectedStudents(self, b = []):
         _a = self.session
         _b = b
-        print(b)
         cn = Db()
         students = cn.selectStudentSelected(_a, _b)
         return students
+    
+    def getIDs(self, b):
+        students = []
+        for a in b:
+            students.append(int(a[0]))
+            
+        return students
+    
+    def getData(self, a=[]):
+        self.a = a
+        nm = {}
+        g = Db()
+        for re in self.a:
+            si = g.selectn('datas', '', 1, {'id':re})
+            nm[re] = si['name']
+            
+        return nm

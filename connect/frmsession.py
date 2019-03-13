@@ -200,7 +200,14 @@ class AddForm(QDialog):
         try:
             if(len(s1) > 0):
                 y = { 'name':s1, 'start_date':s2, 'end_date':s3, 'active':0}
-                g.insert('session', y)
+                z = g.insert('session', y)
+                if z and z > 0:
+                    g.createExpenses(z)
+                    g.createStores(z)
+                    g.createAwards(z)
+                    g.createConducts(z)
+                    g.createMails(z)
+                    g.createMedicals(z)
             else:
                 pass
         except:
@@ -284,6 +291,13 @@ class EditForm(QDialog):
             y = { 'name':s1, 'start_date':s2, 'end_date':s3}
             z = {'id':self.a}
             g.update('session', y, z)
+            if z and z > 0:
+                g.createExpenses(self.a)
+                g.createStores(self.a)
+                g.createAwards(self.a)
+                g.createConducts(self.a)
+                g.createMails(self.a)
+                g.createMedicals(self.a)
         
         self.form = SessionForm()
         self.form.show()

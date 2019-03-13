@@ -8,6 +8,7 @@ Created on Tue Jul 10 00:52:47 2018
 from PyQt4.QtCore import SIGNAL, QDate, Qt, QSize
 from PyQt4.QtGui import  QWidget, QFileDialog, QPixmap, QTabWidget, QComboBox, QRadioButton, QDateEdit, QTextEdit, QCheckBox, QHBoxLayout, QGroupBox, QGridLayout, QDialog, QApplication, QPushButton, QLineEdit, QFormLayout, QLabel, QVBoxLayout, QSizePolicy
 from connect import Db
+from PIL import Image
 import cv2
 
 class StudentForm(QDialog):
@@ -15,7 +16,7 @@ class StudentForm(QDialog):
     def __init__(self, parent=None):
         super(StudentForm, self).__init__(parent)
         #self.setGeometry(50, 50, 820, 530)
-        self.resize(430, 530)
+        self.resize(530, 430)
         
         self.tabz = QTabWidget(self)
         self.tab1 = QWidget(self)
@@ -23,6 +24,7 @@ class StudentForm(QDialog):
         self.tab3 = QWidget(self)
         self.tab4 = QWidget(self)
         
+        #main form
         self.schno = QLabel("School Number")
         self.schnoData = QLineEdit()
         self.schnoData.setObjectName("schno")
@@ -112,7 +114,7 @@ class StudentForm(QDialog):
         #self.setTabText(0, 'BioData')
         self.tab1.setLayout(vbox)
         
-        
+        #guardian data
         relations = ['Father', 'Mother', 'Aunt', 'Uncle', 'Grand Parent', 'Guardian', 'Others']
         
         #first guardian details
@@ -213,7 +215,6 @@ class StudentForm(QDialog):
         
         hbox1 = QHBoxLayout()
         hbox1.addLayout(Formlayout1)
-        hbox1.addStretch()
         hbox1.addLayout(Formlayout2)
         
         groupBox2 = QGroupBox('GUARDIAN')
@@ -227,19 +228,19 @@ class StudentForm(QDialog):
         
         #photo
         self.pic1 = QLabel()
-        pixmap1 = QPixmap('img/studentz.png')
+        image1 = Image.open('img/studentz.png')
         self.pic1.resize(100, 150)
-        self.pic1.setPixmap(pixmap1)
+        self.pic1.setLabel(image1)
         
         self.pic2 = QLabel()
-        pixmap2 = QPixmap('img/studentz.png')
+        image2 = Image.open('img/studentz.png')
         self.pic2.resize(100, 150)
-        self.pic2.setPixmap(pixmap2)
+        self.pic2.setPixmap(image2)
         
         self.pic3 = QLabel()
-        pixmap3 = QPixmap('img/studentz.png')
+        image3 = Image.open('img/studentz.png')
         self.pic3.resize(100, 150)
-        self.pic3.setPixmap(pixmap3)
+        self.pic3.setPixmap(image3)
         
         self.picBtn1 = QPushButton('Select Image')
         self.picBtn1.clicked.connect(self.getFilez)
@@ -680,7 +681,7 @@ class StudentForm(QDialog):
         
         self.tab3.setLayout(vpic)
         self.tab3.resize(100, 100)
-        self.tab3.setStyleSheet("background-color: red; margin:5px; border:1px solid red;")
+        #self.tab3.setStyleSheet("background-color: red; margin:5px; border:1px solid red;")
 
         self.tabz.addTab(self.tab1, 'Bio-Data')
         self.tabz.addTab(self.tab2, 'Contact Details')

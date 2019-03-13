@@ -11,8 +11,8 @@ Created on Sat Jul  7 15:54:19 2018
 
 @author: CHARLES
 """
-from PyQt4.QtCore import SIGNAL
-from PyQt4.QtGui import QWidget, QFrame, QDateEdit, QRadioButton, QCheckBox, QHBoxLayout, QGroupBox, QGridLayout, QDialog, QApplication, QPushButton, QLineEdit, QFormLayout, QLabel, QVBoxLayout
+from PyQt4.QtCore import SIGNAL, Qt
+from PyQt4.QtGui import QWidget, QTreeWidgetItem, QTreeWidget, QFrame, QDateEdit, QRadioButton, QCheckBox, QHBoxLayout, QGroupBox, QGridLayout, QDialog, QApplication, QPushButton, QLineEdit, QFormLayout, QLabel, QVBoxLayout
 from connect import Db
 
 class SubjectCaDialog(QDialog):
@@ -20,60 +20,43 @@ class SubjectCaDialog(QDialog):
     holdc = {}
     def __init__(self, term, parent=None):
         super(SubjectCaDialog, self).__init__(parent)
-        #self.resize(200, 600)
+        self.setMinimumHeight(280)
         ko = 0
         self.subjects = self.pullSubjects()
         self.term = term
         self.cas = self.pullCas(self.term)
-        frame1 = QGroupBox('Subjects')
-        frame2 = QGroupBox('Assessments')
-        
+        g = Db()
         hc1_box = QVBoxLayout()
-        hc2_box = QVBoxLayout()
-        self.li = []
-        self.liID = []
+        self.subject_hold = {}
+        self.ca_hold = {}
+        self.tree1 = QTreeWidget()
+        self.tree1.setMinimumHeight(280)
+        self.tree1.setHeaderLabel("Select Subject and CA to Display")
+        self.hold_checkbox = []
+        parent1 = QTreeWidgetItem(self.tree1)
+        parent1.setText(0, "Select")
+        parent1.setFlags(parent1.flags() | Qt.ItemIsTristate | Qt.ItemIsUserCheckable)
         for subject in self.subjects:
             num = subject['id']
-            self.liID.append(num)
-            self.c = QCheckBox('cb'+str(num))
-            self.c.setText(str(subject['name']).upper())
-            self.c.setObjectName("chk"+str(num))
-            self.c.setChecked(False)
-            self.c.toggled.connect(lambda state, x=num, y=self.c: self.chkFunc(x, y))
-            hc1_box.addWidget(self.c)
-            self.li.append(self.c)
+            child = QTreeWidgetItem(parent1)
+            child.setFlags(child.flags() | Qt.ItemIsTristate | Qt.ItemIsUserCheckable) 
+            child.setText(0, str(subject['name']).upper())                        
+            child.setCheckState(0, Qt.Checked)
+            for ca in self.cas:
+                dt = g.selectn('datas', '', 1, {'id': ca['name']})
+                child2 = QTreeWidgetItem(child)
+                child2.setFlags(child2.flags() | Qt.ItemIsTristate | Qt.ItemIsUserCheckable)
+                child2.setText(0, str(dt['name']).upper())
+                child2.setCheckState(0, Qt.Checked)
+                self.hold_checkbox.append(child2)
+                self.subject_hold[child2] = num 
+                self.ca_hold[child2] = ca['id']
+                ko += 1
+
+            hc1_box.addWidget(self.tree1)
+            
             
             ko += 1
-           
-        
-        self.li1 = []
-        self.lip = {}
-        self.li1ID = []
-        g = Db()
-        hc2_box = QVBoxLayout()
-        for ca in self.cas:
-            num = ca['id']
-            dt = g.selectn('datas', '', 1, {'id': ca['name']})
-            self.li1ID.append(num)
-            self.c1 = QCheckBox('cbx'+str(num))
-            self.c1.setText(str(dt['name']).upper())
-            self.c1.setObjectName("chkx"+str(num))
-            self.c1.setChecked(False)
-            self.c1.toggled.connect(lambda state, x=num, y=self.c1: self.chkFunc(x, y))
-            hc2_box.addWidget(self.c1)
-            self.li1.append(self.c1)
-            self.lip[num] = self.c1
-            ko += 1 
-            
-        frame1.setLayout(hc1_box)
-        #frame1.setFrameShape(QFrame.StyledPanel)
-        frame2.setLayout(hc2_box)
-        #frame2.setFrameShape(QFrame.StyledPanel)
-        
-        h_box = QHBoxLayout()
-        h_box.addWidget(frame1)
-        h_box.addWidget(frame2)
-        
         
         self.pb = QPushButton()
         self.pb.setObjectName("MakeEntries")
@@ -93,10 +76,9 @@ class SubjectCaDialog(QDialog):
         but_box.addWidget(self.pb)
         
         main_box = QVBoxLayout()
-        main_box.addLayout(h_box)
+        main_box.addLayout(hc1_box)
         main_box.addLayout(but_box)
-        
-        
+
         self.setLayout(main_box)
         self.connect(self.pb, SIGNAL("clicked()"), lambda: self.button_click(0))
         self.connect(self.pb1, SIGNAL("clicked()"), lambda: self.button_click(1))
@@ -139,25 +121,18 @@ class SubjectCaDialog(QDialog):
         self.accept()
         
     def getValue(self):
-        
-        k1 = []
-        k2 = []
-        for s in range(0, len(self.li)):
-            if self.li[s].isChecked():
-                k1.append(self.liID[s])
+        _subject = {}
+        for s in self.hold_checkbox:
+            if s.checkState(0) == Qt.Checked:
+                sub = int(self.subject_hold[s])
+                ca = int(self.ca_hold[s])
+                if sub in _subject and isinstance(_subject[sub], list):
+                    _subject[sub].append(ca)
+                else:
+                    _subject[sub] = []
+                    _subject[sub].append(ca)     
             else:
-                k2.append(self.liID[s])
+               pass
                  
-          
-        
-    
-        k11 = []
-        k21 = []
-        for s in self.lip:
-            if self.lip[s].isChecked():
-                k11.append(s)
-            else:
-                k21.append(s)
-                 
-        return [k1, k11, self.prime] 
+        return [_subject, self.prime] 
     

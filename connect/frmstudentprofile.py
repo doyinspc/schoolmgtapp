@@ -4,7 +4,6 @@ Created on Sat Nov 17 05:44:29 2018
 
 @author: CHARLES
 """
-
 from PyQt4.QtCore import SIGNAL, QDate, Qt, QSize
 from PyQt4.QtGui import  QPrintPreviewDialog, QLayout, QScrollArea, QMenuBar, QAction, QStackedWidget, QFont, QWidget, QSplitter, QFileDialog, QPixmap, QTabWidget, QComboBox, QRadioButton, QDateEdit, QTextEdit, QCheckBox, QHBoxLayout, QGroupBox, QGridLayout, QDialog, QApplication, QPushButton, QLineEdit, QFormLayout, QLabel, QVBoxLayout, QSizePolicy
 from connect import Db

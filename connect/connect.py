@@ -5,6 +5,7 @@ Created on Sun Jun 24 04:41:40 2018
 """
 import sqlite3
 from tables import Tables
+import smtplib
 
 class Db(object):
     dbs = 'test.db';
@@ -37,6 +38,12 @@ class Db(object):
         sql = t.studentClasz(self.a)
         self.logConnect(sql)
         
+    def createSubject(self, a):
+        self.a = a
+        t = Tables()
+        sql = t.studentSubjects(self.a)
+        self.logConnect(sql)
+        
     def createResult(self, a):
         self.a = a
         t = Tables()
@@ -59,6 +66,48 @@ class Db(object):
         self.a = a
         t = Tables()
         sql = t.studentFee(self.a)
+        self.logConnect(sql)
+    
+    def createPay(self, a):
+        self.a = a
+        t = Tables()
+        sql = t.studentPay(self.a)
+        self.logConnect(sql)
+        
+    def createExpenses(self, a):
+        self.a = a
+        t = Tables()
+        sql = t.schoolExpenses(self.a)
+        self.logConnect(sql)
+        
+    def createStores(self, a):
+        self.a = a
+        t = Tables()
+        sql = t.schoolStores(self.a)
+        self.logConnect(sql)
+        
+    def createAwards(self, a):
+        self.a = a
+        t = Tables()
+        sql = t.schoolAwards(self.a)
+        self.logConnect(sql)
+        
+    def createConducts(self, a):
+        self.a = a
+        t = Tables()
+        sql = t.schoolConducts(self.a)
+        self.logConnect(sql)
+        
+    def createMails(self, a):
+        self.a = a
+        t = Tables()
+        sql = t.schoolMails(self.a)
+        self.logConnect(sql)
+        
+    def createMedicals(self, a):
+        self.a = a
+        t = Tables()
+        sql = t.schoolMedicals(self.a)
         self.logConnect(sql)
         
     def createStudent(self):
@@ -112,6 +161,8 @@ class Db(object):
                     store[a['id']] = []  
                     store[a['id']].append(str(st))
                     store[a['id']].append(str(d['id']))
+                    store[a['id']].append(str(a['sessionID']))
+                    store[a['id']].append(str(r['classID']))
         return store
     
     def convert(self, r):
@@ -190,6 +241,7 @@ class Db(object):
         self.db = db
         f = self.convert(self.a)
         sql = "INSERT INTO "+ self.db +" "+f[2]+" VALUES "+ f[5] 
+        print(sql)
         num = None
         try:
             conn = sqlite3.connect(self.dbs)
@@ -309,7 +361,7 @@ class Db(object):
             wheres = ' WHERE '+ where
         
         sql = "SELECT "+ column +" FROM "+ self.db +" "+ wheres
-      
+        
         
         try:
             conn = sqlite3.connect(self.dbs)
@@ -326,7 +378,35 @@ class Db(object):
             conn.close()
         except:
             pass
-     
+    
+    def selectSearch(self, session,  txt):
+        '''
+        select form database tables
+        give table name, columns, number of rows,
+        '''
+        #self.db_class = 'students_class'+str(session)
+        self.db = 'students'
+        self.db_class = 'student_class'+str(session)
+        num = ''
+        sql = "SELECT `id`, `schno`, `surname`, `firstname`, `othername`, `gender`, (SELECT `classID` FROM `"+ self.db_class +"` WHERE `studentID` =  `students`.`id` LIMIT 1) as cid, (SELECT `abbrv` FROM `datas` WHERE `id` = (SELECT `classID` FROM `"+ self.db_class +"` WHERE `studentID` = `students`.`id` LIMIT 1) LIMIT 1) as classunit, (SELECT `abbrv` FROM `datas` WHERE `id` = (SELECT `subID` FROM `datas` WHERE `id` = (SELECT `classID` FROM `"+ self.db_class +"` WHERE `studentID` = `students`.`id` LIMIT 1) LIMIT 1) LIMIT 1) as classname  FROM `"+ self.db +"` WHERE `surname` LIKE '%"+txt+"%' OR `firstname` LIKE '%"+txt+"%' OR `othername` LIKE '%"+txt+"%' "
+       
+        
+        try:
+            conn = sqlite3.connect(self.dbs)
+            conn.row_factory = lambda C, R: {c[0]: R[i] for i, c in enumerate(C.description)}
+            c = conn.cursor()
+            c.execute(sql)
+            if (num and int(num) == 1):
+                return c.fetchone()
+            elif (num and int(num) > 1):
+                return c.fetchmany(self.num)
+            else:
+                return c.fetchall()
+                
+            conn.close()
+        except:
+            pass
+    
     def selectMultiplen(self, db,  whr):
         '''
         select form database tables
@@ -392,32 +472,41 @@ class Db(object):
             
     
         
-    def selectStudentClass(self, db, classunit = []):
+    def selectStudentClass(self, db, classunit = [], text = None):
         '''
         select form database tables
         give table name, columns, number of rows,
         '''
+        print(text)
         self.db = db
         self.classunit = classunit
-        #cl = self.select('datas', '', 1, {'id':self.classunit} )
-        #print(cl)
+        new1 = ''
+        new2 = ''
+        new3 = ''
         if len(self.classunit) > 0:
             new = list(set(self.classunit))
-            new1 = self.list_to_or('classID', new)
-            new2 = ' WHERE ' + new1
+            new1 = self.list_to_or('classID', new) 
         else:
-            new2 =''
-        
-        
+            new1 =''
+            
+        if text and int(text) > -1:
+            if len(new1) > 0:
+                new3 += ' AND gender = "'+str(int(text) - 1)+'"'
+            else:
+                new3 += ' gender = "'+str(int(text) - 1)+'"'
+            
+        if len(new1) > 0:
+            new2 = ' WHERE ' + new1 +' '+new3
+            
         sql = "SELECT *, `"+self.db +"`.`id` as cid, (SELECT abbrv FROM datas WHERE id = `"+self.db +"`.`classID` LIMIT 1) as classunitname, (SELECT abbrv FROM datas WHERE id = (SELECT subID FROM datas WHERE id = `"+self.db +"`.`classID` LIMIT 1) LIMIT 1) as classname  FROM  `students`  LEFT JOIN `"+ self.db +"` ON `students`.`id` = `"+self.db+"`.`studentID` "+new2
         #print(sql)
         try:
             conn = sqlite3.connect(self.dbs)
+            conn.row_factory = lambda C, R: {c[0]: R[i] for i, c in enumerate(C.description)}
             c = conn.cursor()
             c.execute(sql)
-            fil =  c.fetchall()
+            return c.fetchall()
             conn.close()
-            return fil
         except:
             pass
         
@@ -457,21 +546,100 @@ class Db(object):
         give table name, columns, number of rows,
         '''
                
-        num = -1
         self.db = 'student_class'+str(session)
                    
         sql = "SELECT *,  `"+self.db +"`.`id` as cid, (SELECT abbrv FROM datas WHERE id = `"+self.db +"`.`classID` LIMIT 1) as classunitname, (SELECT abbrv FROM datas WHERE id = (SELECT subID FROM datas WHERE id = `"+self.db +"`.`classID` LIMIT 1) LIMIT 1) as classname  FROM  `students`  LEFT JOIN `"+ self.db +"` ON `students`.`id` = `"+self.db+"`.`studentID` "
         
         try:
             conn = sqlite3.connect(self.dbs)
+            conn.row_factory = lambda C, R: {c[0]: R[i] for i, c in enumerate(C.description)}
             c = conn.cursor()
             c.execute(sql)
-            fil =  c.fetchall()
+            return c.fetchall()
             conn.close()
-            return fil
         except sqlite3.Error as e:
             print(e)
+    
+    def selectExpenseDate(self, db, start, end):
+        '''
+        get expenses by date
+        '''
         
+        if start == end:
+            sql = "SELECT id, amount, expenseID, accountID, datepaid, teller, description, (SELECT name FROM datas WHERE id = expenseID) as expensename, (SELECT name FROM datas WHERE id = accountID) as accountname FROM `"+db+"` WHERE  datepaid >= '"+str(int(start))+"' " 
+        else:
+            sql = "SELECT id, amount, expenseID, accountID, datepaid, teller, description, (SELECT name FROM datas WHERE id = expenseID) as expensename, (SELECT name FROM datas WHERE id = accountID) as accountname FROM `"+db+"` WHERE  datepaid >= '"+str(int(start))+"' AND datepaid <= '"+str(int(end))+"' "
+        
+            
+        try:
+            conn = sqlite3.connect(self.dbs)
+            conn.row_factory = lambda C, R: {c[0]: R[i] for i, c in enumerate(C.description)}
+            c = conn.cursor()
+            c.execute(sql)
+            return c.fetchall()
+                
+            conn.close()
+        except sqlite3.Error as e:
+            print(e)
+       
+    def selectStoreDate(self, db, start, end, st = None):
+        '''
+        get expenses by date
+        '''
+        wh = ''
+        if st:
+            wh = ' AND state = '+str(st)
+            
+        if start == end:
+            sql = "SELECT id, amount, itemID, quantity, period, person, state, datepaid, teller, description, (SELECT name FROM datas WHERE id = itemID) as itemname FROM `"+db+"` WHERE  datepaid >= '"+str(int(start))+"' "+wh 
+        else:
+            sql = "SELECT id, amount, itemID, quantity, period, person, state, datepaid, teller, description, (SELECT name FROM datas WHERE id = itemID) as itemname FROM `"+db+"` WHERE  datepaid >= '"+str(int(start))+"' AND datepaid <= '"+str(int(end))+"' "+wh
+        
+        try:
+            conn = sqlite3.connect(self.dbs)
+            conn.row_factory = lambda C, R: {c[0]: R[i] for i, c in enumerate(C.description)}
+            c = conn.cursor()
+            c.execute(sql)
+            return c.fetchall()
+                
+            conn.close()
+        except sqlite3.Error as e:
+            print(e)
+            
+    def selectStoreReturned(self, db, dt):
+        '''
+        get store
+        '''
+       
+        sql = "SELECT sum(quantity) as qty FROM "+ db +" where state = '5' AND active = "+str(dt)+" GROUP BY itemID  " 
+        
+        try:
+            conn = sqlite3.connect(self.dbs)
+            conn.row_factory = lambda C, R: {c[0]: R[i] for i, c in enumerate(C.description)}
+            c = conn.cursor()
+            c.execute(sql)
+            return c.fetchone()
+            conn.close()
+        except sqlite3.Error as e:
+            print(e)
+     
+    def selectStoreQuantity(self, db, dt):
+        '''
+        get store
+        '''
+       
+        sql = "SELECT state, itemID, sum(quantity) as qty FROM "+ db +" where `itemID` = "+str(dt)+" GROUP BY state  " 
+        
+        try:
+            conn = sqlite3.connect(self.dbs)
+            conn.row_factory = lambda C, R: {c[0]: R[i] for i, c in enumerate(C.description)}
+            c = conn.cursor()
+            c.execute(sql)
+            return c.fetchall()
+            conn.close()
+        except sqlite3.Error as e:
+            print(e)
+            
     def selectStudentAllCr(self, session):
         '''
         select form database tables
@@ -485,14 +653,34 @@ class Db(object):
         
         try:
             conn = sqlite3.connect(self.dbs)
+            conn.row_factory = lambda C, R: {c[0]: R[i] for i, c in enumerate(C.description)}
             c = conn.cursor()
             c.execute(sql)
-            fil =  c.fetchall()
+            return c.fetchall()
             conn.close()
-            return fil
         except sqlite3.Error as e:
             print(e)
-            
+   
+    def selectStudentAllEx(self, session):
+        '''
+        select form database tables
+        give table name, columns, number of rows,
+        '''
+               
+     
+        self.db = 'student_class'+str(session)
+                   
+        sql = "SELECT *,  `"+self.db +"`.`id` as cid, (SELECT abbrv FROM datas WHERE id = `"+self.db +"`.`classID` LIMIT 1) as classunitname, (SELECT abbrv FROM datas WHERE id = (SELECT subID FROM datas WHERE id = `"+self.db +"`.`classID` LIMIT 1) LIMIT 1) as classname  FROM `students` LEFT JOIN `"+ self.db +"`  ON `"+self.db+"`.`studentID` = `students`.`id` WHERE `"+self.db +"`.`classID` IS NULL"
+      
+        try:
+            conn = sqlite3.connect(self.dbs)
+            conn.row_factory = lambda C, R: {c[0]: R[i] for i, c in enumerate(C.description)}
+            c = conn.cursor()
+            c.execute(sql)
+            return c.fetchall()
+            conn.close()
+        except sqlite3.Error as e:
+            print(e)         
             
     def selectStudentsCa(self, session , student = [], subject = [], ca = []):
         '''
@@ -822,7 +1010,27 @@ class Db(object):
                     return 'x';
         except:
             return 'y'
-        
+     
+    
+    def sendMail(self, to_addr_list, subject, message):
+        smtpserver='smtp.gmail.com:587'
+        login = 'doyinspc2@gmail.com'
+        password = 'james414'
+        from_addr = 'doyinspc2@gmail.com'
+        header  = 'From: %s' % from_addr
+        header += 'To: %s' % ','.join(to_addr_list)
+        header += 'Subject: %s' % subject
+        message = header + message
+     
+        server = smtplib.SMTP(smtpserver)
+        server.starttls()
+        server.login(login,password)
+        try:
+            e = server.sendmail(from_addr, to_addr_list, message)
+        except e:
+            return e
+        server.quit()
+        return e
         
         
         

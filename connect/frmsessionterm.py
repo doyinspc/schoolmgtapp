@@ -249,7 +249,9 @@ class AddForm(QDialog):
                 
                 if z and z > 0:
                     g.createClass(z)
+                    g.createSubject(z)
                     g.createFee(z)
+                    g.createPay(z)
                     g.createResult(z)  
                     g.createAffective(z)
                     g.createPsychomoto(z)
@@ -353,7 +355,9 @@ class EditForm(QDialog):
             g.update('terms', y, z)
             if self.a and self.a > 0:
                     g.createClass(self.a)
+                    g.createSubject(self.a)
                     g.createFee(self.a)
+                    g.createPay(self.a)
                     g.createResult(self.a) 
                     g.createAffective(self.a)
                     g.createPsychomoto(self.a)

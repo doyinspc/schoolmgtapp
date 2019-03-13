@@ -21,9 +21,6 @@ Created on Sat Jul  7 15:54:19 2018
 from PyQt4.QtCore import SIGNAL, Qt, QEvent
 from PyQt4.QtGui import QFontDialog, QColorDialog, QTreeWidget, QTreeWidgetItem, QStyle, QStyleOptionButton, QStyledItemDelegate, QStandardItemModel,  QStandardItem, QWidget,QComboBox, QListView, QListWidget, QFrame, QDateEdit, QRadioButton, QCheckBox, QHBoxLayout, QGroupBox, QGridLayout, QDialog, QApplication, QPushButton, QLineEdit, QFormLayout, QLabel, QVBoxLayout
 from connect import Db
-import json
-
-import sys
 
 class FeeDialog(QDialog):
     

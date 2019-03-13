@@ -16,7 +16,7 @@ from PyQt4.QtGui import QWidget, QDateEdit, QRadioButton, QCheckBox, QHBoxLayout
 from connect import Db
 
 class FeeForm(QDialog):
-    pagetitle = 'Assessment Manager'
+    pagetitle = 'Fees Type Manager'
     def __init__(self, parent=None):
         super(FeeForm, self).__init__(parent)
         

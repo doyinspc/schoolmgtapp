@@ -174,9 +174,14 @@ class TermFeeDialog(QDialog):
         _students = self.students
         _amount = self.feesAmount.text()
         _fee = self.hol[self.feesCombo.currentIndex()]
-        print(_fee)
-         
+        feeStudent = 0
+        feeStudentUp = 0
+        ins = []
+        ups = [] 
         for j in _class:
+            st = self.getClassStudent([j])
+            post = StudentTable(self.term, [None], [None], [None])
+            _students = post.getIDs(st[1])
             data = {}
             data['pubID'] = 'fee'
             data['subID'] = _term
@@ -184,28 +189,38 @@ class TermFeeDialog(QDialog):
             data['name'] =  j
         
             cn = Db()
-            feeStudent = self.feeStudents(_term, _students, _fee, _amount)
             check = cn.selectn('datas', '', 1, data)
-            if(check and check['id'] == 0):
-                pass
+            if(check and check['id'] > 0):
+                if float(check['description']) == float(_amount):
+                    pass
+                else:
+                    #update
+                    sid = cn.update('datas', {'description': _amount}, {'id': check['id']})
+                    re = self.feeStudentsUpdate(_term, _students, _fee, _amount, check['id'])
+                    feeStudent = re[0] 
+                    feeStudentUp = re[1] 
             else:
                 data['description'] =  _amount
-                cn.insert('datas', data)
+                sid = cn.insert('datas', data)
+                if int(sid) > 0:
+                    feeStudent = self.feeStudents(_term, _students, _fee, _amount, sid)
     
-        ins = feeStudent
-        tex = ' TOTAL of '+ str(ins) +' inserted';
+            ins.append(int(feeStudent))
+            ups.append(int(feeStudentUp))
+        tex = ' TOTAL of '+ str(sum(ins)) +' inserted '+ str(sum(ups)) +' updated.';
         self.feesPop.setText(tex)
         
-    def feeStudents(self, session, students, fee, amount):
+    def feeStudents(self, session, students, fee, amount, sid):
         db = 'student_fee'+str(session)
         cn = Db()
-        fd = []
         ed = []
         
         for s in students:
             data = {}
-            data['studentID'] = s[0]
+            data['studentID'] = s
             data['feeID'] = fee
+            data['amount'] = amount
+            data['active'] = sid
             
             chk = cn.selectn(db, '', 1, data)
             if(chk and int(chk['id']) > 0):
@@ -217,6 +232,32 @@ class TermFeeDialog(QDialog):
                 ed.append(e)
                 
         return len(ed)
+    
+    def feeStudentsUpdate(self, session, students, fee, amount, sid):
+        db = 'student_fee'+str(session)
+        cn = Db()
+        ed = []
+        ed1 = []
+        
+        for s in students:
+            datas = {}
+            datas['studentID'] = s
+            datas['feeID'] = fee
+            #datas['active'] = sid
+            
+            data = {}
+            data['studentID'] = s
+            data['feeID'] = fee
+            data['amount'] = amount
+            data['active'] = sid
+            e = cn.update(db, data, datas)
+            if e == 1:
+                ed1.append(e)
+            else:
+                e = cn.insert(db, data)
+                ed.append(e)  
+                
+        return [len(ed), len(ed1)]
         
     def lunchEditForm(self, row):
         term = self.term
