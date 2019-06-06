@@ -1,768 +1,163 @@
-
+# -*- coding: utf-8 -*-
 """
-Created on Sat Jul  7 15:54:19 2018
+Created on Fri Mar 29 15:27:15 2019
 
 @author: CHARLES
 """
-from PyQt4.QtCore import SIGNAL, QDate, Qt
-from PyQt4.QtGui import QTreeWidget, QTreeWidgetItem, QWidget, QIcon, QDateEdit, QRadioButton, QCheckBox, QHBoxLayout, QGroupBox, QGridLayout, QDialog, QApplication, QPushButton, QLineEdit, QFormLayout, QLabel, QVBoxLayout
+from PyQt4.QtCore import SIGNAL, Qt, QEvent
+from PyQt4.QtGui import QFontDialog, QColorDialog, QTreeWidget, QTreeWidgetItem, QStyle, QStyleOptionButton, QStyledItemDelegate, QStandardItemModel,  QStandardItem, QWidget,QComboBox, QListView, QListWidget, QFrame, QDateEdit, QRadioButton, QCheckBox, QHBoxLayout, QGroupBox, QGridLayout, QDialog, QApplication, QPushButton, QLineEdit, QFormLayout, QLabel, QVBoxLayout
 from connect import Db
-from validate import Valid, Buttons, Settingz
-import time
-from datetime import datetime
 
-class SettingsManager(QDialog):
-    def __init__(self, num, parent=None):
-       super(SettingsManager, self).__init__(parent) 
-       #main
-       title = Settingz().positions(num)
-       self.titleID = title['id']
-       self.titlePage = title['page']
-       self.titleName = title['name']
-       self.titleSub = title['subID']
-       self.titleIcon = title['icon']
-       self.pagetitle = self.titlePage
-       #stylesheet
-       stylesheet = Valid().background() + Valid().font()
-       treeStyleSheet =  Valid().treez()
-       
-       self.groupBox1 = QGroupBox(self.titleName)
-       self.groupBox2 = QGroupBox('Add')
+class DataDialog(QDialog):
     
-       #items
-       self.tree = QTreeWidget()
-       self.tree.setHeaderLabel("Choose "+self.titleName)
-       self.tree.headerItem().setText(0, 'Name')
-       self.tree.headerItem().setText(1, 'Abbrv.')
-       self.tree.setStyleSheet(treeStyleSheet)
-       self.makeTree()
-       self.tree.setMinimumHeight(250)
-       self.tree.clicked.connect(lambda:self.getSelection())
-       #buttons
-       #add
-       nImg = Buttons().addButton()
-       self.pb = QPushButton()
-       self.pb.setFlat(True)
-       self.pb.setIcon(QIcon(nImg))
-       self.pb.setMaximumHeight(30)
-       self.pb.setMaximumWidth(30)
-        
-       nImg1 = Buttons().closeButton()
-       self.pb1 = QPushButton()
-       self.pb1.setFlat(True)
-       self.pb1.setIcon(QIcon(nImg1))
-       self.pb1.setMaximumHeight(30)
-       self.pb1.setMaximumWidth(30)
-       
-       nImg2 = Buttons().editButton()
-       self.pb2 = QPushButton()
-       self.pb2.setFlat(True)
-       self.pb2.setIcon(QIcon(nImg2))
-       self.pb2.setMaximumHeight(30)
-       self.pb2.setMaximumWidth(30)
-       
-       nImg3 = Buttons().deleteButton()
-       self.pb3 = QPushButton()
-       self.pb3.setFlat(True)
-       self.pb3.setIcon(QIcon(nImg3))
-       self.pb3.setMaximumHeight(30)
-       self.pb3.setMaximumWidth(30)
-       
-       nImg4 = Buttons().saveButton()
-       self.pb4 = QPushButton()
-       self.pb4.setFlat(True)
-       self.pb4.setIcon(QIcon(nImg4))
-       self.pb4.setMaximumHeight(30)
-       self.pb4.setMaximumWidth(30)
-       
-       nImg5 = Buttons().resetButton()
-       self.pb5 = QPushButton()
-       self.pb5.setFlat(True)
-       self.pb5.setIcon(QIcon(nImg5))
-       self.pb5.setMaximumHeight(30)
-       self.pb5.setMaximumWidth(30)
-       
-       nImg6 = Buttons().closeButton()
-       self.pb6 = QPushButton()
-       self.pb6.setFlat(True)
-       self.pb6.setIcon(QIcon(nImg6))
-       self.pb6.setMaximumHeight(30)
-       self.pb6.setMaximumWidth(30)
-       
-       nImg7 = Buttons().addButton()
-       self.pb7 = QPushButton()
-       self.pb7.setFlat(True)
-       self.pb7.setIcon(QIcon(nImg7))
-       self.pb7.setMaximumHeight(30)
-       self.pb7.setMaximumWidth(30)
-        
-       hbo = QHBoxLayout()
-       hbo.addStretch()
-       hbo.addWidget(self.pb1)
-       hbo.addWidget(self.pb3)
-       hbo.addWidget(self.pb2)
-       hbo.addWidget(self.pb7)
-       
-       vbo = QVBoxLayout()
-       vbo.addWidget(self.tree)
-       vbo.addLayout(hbo)
-       
-       self.l1 = QLabel("Name")
-       self.le1 = QLineEdit()
-       self.le1.setObjectName("name")
-       vals1 = Valid().fullText()
-       self.le1.setValidator(vals1)
-       self.le1.setPlaceholderText("Lowercase max 25 letters")
-        
-       self.l2 = QLabel("Abbrv")
-       self.le2 = QLineEdit()
-       self.le2.setObjectName("abbrv")
-       vals2 = Valid().limitText()
-       self.le2.setValidator(vals2)
-       self.le2.setPlaceholderText("Lowercase max 5 letters")
-       
-       FormLayout = QFormLayout()
-       FormLayout.addRow(self.l1, self.le1)
-       FormLayout.addRow(self.l2, self.le2)
-       
-       Hlayout1 = QHBoxLayout()
-       Hlayout1.addStretch()
-       Hlayout1.addWidget(self.pb6)
-       Hlayout1.addWidget(self.pb5)
-       Hlayout1.addWidget(self.pb4)
-       Hlayout1.addWidget(self.pb)
-       
-       Vlayout1 = QVBoxLayout()
-       Vlayout1.addLayout(FormLayout)
-       Vlayout1.addLayout(Hlayout1)
-       
-       self.groupBox1.setLayout(vbo)
-       self.groupBox2.setLayout(Vlayout1)
-       self.groupBox2.hide()
-       
-       self.connect(self.pb, SIGNAL("clicked()"), lambda: self.button_add()) #add
-       self.connect(self.pb1, SIGNAL("clicked()"), lambda: self.button_close()) #close
-       self.connect(self.pb2, SIGNAL("clicked()"), lambda: self.button_edit()) #edit
-       self.connect(self.pb3, SIGNAL("clicked()"), lambda: self.button_delete()) #delete
-       self.connect(self.pb4, SIGNAL("clicked()"), lambda: self.button_save()) #save
-       self.connect(self.pb5, SIGNAL("clicked()"), lambda: self.button_reset()) #reset
-       
-       self.pb4.hide()
-       self.pb7.hide()
-       
-       grid = QGridLayout()
-       grid.addWidget(self.groupBox1, 0, 0)
-       grid.addWidget(self.groupBox2, 1, 0)
-        
-       self.setLayout(grid)
-       self.setStyleSheet(stylesheet)
-       self.setWindowIcon(QIcon(self.titleIcon))
-       self.setWindowTitle(self.pagetitle)
-         
-    def makeTree(self):
-       self.tree.clear()
-       arr = Valid().pullData('datas', '', {'pubID': self.titleID})
-       self.hold_data = {}
-       self.hold_mdata = {}
-       self.hold_data_add = {}
-       self.hold_data_add_item = {}
-      
-       if self.titleSub and self.titleSub > 0:
-           if arr and len(arr) > 0:
-               for val in arr:
-                 ch = Valid().pullData('datas', '', {'subID':val['id']})
-                 child = QTreeWidgetItem(self.tree)
-                 child.setFlags(child.flags() | Qt.ItemIsUserCheckable)
-                 child.setText(0, str(val['name']).upper())
-                 child.setText(1, str(val['abbrv']).upper())
-                 self.hold_mdata[val['id']] = child
-                 if (val['active'] == 0):
-                     child.setCheckState(0, Qt.Checked)
-                 else:
-                     child.setCheckState(0, Qt.Unchecked)
-              
-                  
-                 for va in ch:
-                     child1 = QTreeWidgetItem(child)
-                     child1.setFlags(child1.flags() | Qt.ItemIsUserCheckable)
-                     child1.setText(0, str(va['name']).upper())
-                     child1.setText(1, str(va['abbrv']).upper())
-                     self.hold_data[va['id']] = child1
-                     if (va['active'] == 0):
-                         child1.setCheckState(0, Qt.Checked)
-                     else:
-                         child1.setCheckState(0, Qt.Unchecked)
-                         
-                 child1 = QTreeWidgetItem(child)
-                 child1.setFlags(child1.flags() | Qt.ItemIsUserCheckable)
-                 child1.setText(0, 'Add New Item')
-                 self.hold_data_add_item[val['id']] = child1
-       else:
-           if arr and len(arr) > 0:
-               for val in arr:
-                 child = QTreeWidgetItem(self.tree)
-                 child.setFlags(child.flags() | Qt.ItemIsUserCheckable)
-                 child.setText(0, str(val['name']).upper())
-                 child.setText(1, str(val['abbrv']).upper())
-                 self.hold_data[val['id']] = child
-                 if (val['active'] == 0):
-                     child.setCheckState(0, Qt.Checked)
-                 else:
-                     child.setCheckState(0, Qt.Unchecked)
-                 
-       child = QTreeWidgetItem(self.tree)
-       child.setFlags(child.flags() | Qt.ItemIsUserCheckable)
-       child.setText(0, 'Add New')
-       self.hold_data_add['addnew'] = child
-    
-    def getChecked(self):
-        arr_hold = []
-        for i in self.hold_data:
-            if self.hold_data[i].checkState(0) == Qt.Checked:
-                arr_hold.append(i) 
-                
-    def getSelected(self):
-        r = None
-        for i in self.hold_mdata:
-            if self.hold_mdata[i].isSelected():
-               r = i
-        if r and r > 0:
-            self.groupBox2.show()
-            self.sessionMain = True
-            return r
-        else:
-            for i in self.hold_data:
-                if self.hold_data[i].isSelected():
-                    r = i
-            if r and r > 0:
-                self.sessionMain = False
-                self.groupBox2.show()
-                return r
-            else:
-                self.groupBox2.hide()
-    
-    def getSelection(self):
-        
-        self.le1.clear()
-        self.le2.clear()
-        
-        if self.hold_data_add['addnew'].isSelected():
-            self.groupBox2.setTitle('Add New')
-            self.groupBox2.show()
-        else:
-            r = None
-            for i in self.hold_data_add_item:
-                if self.hold_data_add_item[i].isSelected():
-                    r = i
-            if r:
-                g = Db()
-                v = g.selectn('datas', '', 1, {'id':r})
-                vname = str(v['name']).upper()
-                self.groupBox2.setTitle('ADD '+str(vname)+' ITEM')
-                self.groupBox2.show()
-            else:
-                self.groupBox2.setTitle('Add')
-                self.groupBox2.hide()
-        
-                
-    def setActive(self):
-        g = Db()
-        for i in self.hold_data:
-            if self.hold_data[i].checkState(0) == Qt.Checked:
-               g.update('datas', {'active':0}, {'id':i})
-            else:
-               g.update('datas', {'active':1}, {'id':i})
-                  
-    def button_add(self):
-        s1 = self.le1.text()
-        s2 = self.le2.text()
-        g = Db()
-        try:
-            if(len(s1) > 0) and (len(s2) > 0):
-                y = { 'name':s1.lower(), 'abbrv':s2.lower(), 'pubID':self.titleID, 'active':0}
-                g.insert('datas', y)
-                self.makeTree()
-                self.button_reset()
-            else:
-                pass
-        except:
-            pass
-        
-    def button_save(self):
-        row = self.editrow
-        
-        s1 = self.le1.text()
-        s2 = self.le2.text()
-        g = Db()
-        try:
-            if(len(s1) > 0) and (len(s2) > 0) and row and  row > 0:
-                y = { 'name':s1.lower(), 'abbrv':s2.lower(), 'active':0}
-                z = {'id':row}
-                g.update('datas', y, z)
-                self.makeTree()
-                self.button_reset()
-            else:
-                pass
-        except:
-            pass
-        
-    def button_delete(self):
-        row = self.getSelected()
-        g = Db()
-        try:
-            if row and  row > 0:
-                y = {'abbrv':'', 'active':2}
-                z = {'id':row}
-                g.update('datas', y, z)
-                self.makeTree()
-            else:
-                pass
-        except:
-            pass
-        
-    def button_reset(self):
-        self.le1.clear()
-        self.le2.clear()
-        self.groupBox2.setTitle('Add')
-        self.groupBox2.hide()
-        self.pb.show()
-        self.pb4.hide()
-        
-    def button_edit(self):
-        row = self.getSelected()
-        if row:
-            self.groupBox2.setTitle('Edit')
-            self.editrow = row
-            g = Db()
-            if self.sessionMain:
-                data = g.selectn('session', '', 1, {'id':row})
-                data_name = data['name']
-            else:
-                data = g.selectn('terms', '', 1, {'id':row})
-                data_sess = g.selectn('session', '', 1, {'id':data['sessionID']})
-                data_name = str(data_sess['name'])+" "+str(data['name'])
-            try:
-                self.le1.setText(data_name)
-            except:
-                self.le1.setText('')
-            
-            self.pb.hide()
-            self.pb4.show()
-        
-    def button_close(self):
-        self.close()
-                 
-class SessionsManager(QDialog):
+    holdc = {}
     def __init__(self, parent=None):
-       super(SessionsManager, self).__init__(parent) 
-       #main
-       title = Settingz().positions(30)
-       self.titleID = title['id']
-       self.titlePage = title['page']
-       self.titleName = title['name']
-       self.titleSub = title['subID']
-       self.titleIcon = title['icon']
-       self.pagetitle = self.titlePage
-       #stylesheet
-       stylesheet = Valid().background() + Valid().font()
-       treeStyleSheet =  Valid().treez()
-       
-       self.groupBox1 = QGroupBox(self.titleName)
-       self.groupBox2 = QGroupBox('Add')
+        super(DataDialog, self).__init__(parent)
+        self.pagetitle = 'School Data' 
     
-       #items
-       self.tree = QTreeWidget()
-       self.tree.setHeaderLabel("Choose "+self.titleName)
-       self.tree.headerItem().setText(0, 'Name')
-       self.tree.headerItem().setText(1, 'Starts')
-       self.tree.headerItem().setText(2, 'Ends')
-       self.tree.setStyleSheet(treeStyleSheet)
-       self.makeTree()
-       self.tree.setMinimumHeight(250)
-       self.tree.clicked.connect(lambda:self.getSelection())
-       #buttons
-       #add
-       nImg = Buttons().addButton()
-       self.pb = QPushButton()
-       self.pb.setFlat(True)
-       self.pb.setIcon(QIcon(nImg))
-       self.pb.setMaximumHeight(30)
-       self.pb.setMaximumWidth(30)
+        Form1 = QFormLayout()
+       
+        #title
+        self.schoolName = QLabel("School Name")
+        self.schoolNameData = QLineEdit()
+        self.schoolNameData.setObjectName("name")
+        self.schoolNameData.setPlaceHolderText("e.g. HERITAGE SCHOOL")
         
-       nImg1 = Buttons().closeButton()
-       self.pb1 = QPushButton()
-       self.pb1.setFlat(True)
-       self.pb1.setIcon(QIcon(nImg1))
-       self.pb1.setMaximumHeight(30)
-       self.pb1.setMaximumWidth(30)
-       
-       nImg2 = Buttons().editButton()
-       self.pb2 = QPushButton()
-       self.pb2.setFlat(True)
-       self.pb2.setIcon(QIcon(nImg2))
-       self.pb2.setMaximumHeight(30)
-       self.pb2.setMaximumWidth(30)
-       
-       nImg3 = Buttons().deleteButton()
-       self.pb3 = QPushButton()
-       self.pb3.setFlat(True)
-       self.pb3.setIcon(QIcon(nImg3))
-       self.pb3.setMaximumHeight(30)
-       self.pb3.setMaximumWidth(30)
-       
-       nImg4 = Buttons().saveButton()
-       self.pb4 = QPushButton()
-       self.pb4.setFlat(True)
-       self.pb4.setIcon(QIcon(nImg4))
-       self.pb4.setMaximumHeight(30)
-       self.pb4.setMaximumWidth(30)
-       
-       nImg5 = Buttons().resetButton()
-       self.pb5 = QPushButton()
-       self.pb5.setFlat(True)
-       self.pb5.setIcon(QIcon(nImg5))
-       self.pb5.setMaximumHeight(30)
-       self.pb5.setMaximumWidth(30)
-       
-       nImg6 = Buttons().closeButton()
-       self.pb6 = QPushButton()
-       self.pb6.setFlat(True)
-       self.pb6.setIcon(QIcon(nImg6))
-       self.pb6.setMaximumHeight(30)
-       self.pb6.setMaximumWidth(30)
-       
-       nImg7 = Buttons().addButton()
-       self.pb7 = QPushButton()
-       self.pb7.setFlat(True)
-       self.pb7.setIcon(QIcon(nImg7))
-       self.pb7.setMaximumHeight(30)
-       self.pb7.setMaximumWidth(30)
+        self.schoolAlias = QLabel("School Alias")
+        self.schoolAliasData = QLineEdit()
+        self.schoolAliasData.setObjectName("alias")
+        self.schoolAliasData.setPlaceHolderText("e.g. HERITAGE, HTS, HS ")
         
-       hbo = QHBoxLayout()
-       hbo.addStretch()
-       hbo.addWidget(self.pb1)
-       hbo.addWidget(self.pb3)
-       hbo.addWidget(self.pb2)
-       hbo.addWidget(self.pb7)
-       
-       vbo = QVBoxLayout()
-       vbo.addWidget(self.tree)
-       vbo.addLayout(hbo)
-       
-       self.l1 = QLabel("Name")
-       self.le1 = QLineEdit()
-       self.le1.setObjectName("name")
-       vals1 = Valid().fullText()
-       self.le1.setValidator(vals1)
-       self.le1.setPlaceholderText("Lowercase max 25 letters")
+        self.schoolMotto = QLabel("Motto")
+        self.schoolMottoData = QLineEdit()
+        self.schoolMottoData.setObjectName("motto")
+        self.schoolMottoData.setPlaceHolderText("e.g. Training a Nation ")
         
-       
-       self.fromLbl = QLabel("Starts")
-       self.toLbl = QLabel("Ends")
-       self.fromData = QDateEdit()
-       self.toData = QDateEdit()
-       currentDate = QDate()
-       self.fromData.setDate(currentDate.currentDate())
-       self.fromData.setCalendarPopup(True)
-       self.toData.setDate(currentDate.currentDate())
-       self.toData.setCalendarPopup(True)
-       
-       FormLayout = QFormLayout()
-       FormLayout.addRow(self.l1, self.le1)
-       FormLayout.addRow(self.fromLbl, self.fromData)
-       FormLayout.addRow(self.toLbl, self.toData)
-       
-       Hlayout1 = QHBoxLayout()
-       Hlayout1.addStretch()
-       Hlayout1.addWidget(self.pb6)
-       Hlayout1.addWidget(self.pb5)
-       Hlayout1.addWidget(self.pb4)
-       Hlayout1.addWidget(self.pb)
-       
-       Vlayout1 = QVBoxLayout()
-       Vlayout1.addLayout(FormLayout)
-       Vlayout1.addLayout(Hlayout1)
-       
-       self.groupBox1.setLayout(vbo)
-       self.groupBox2.setLayout(Vlayout1)
-       self.groupBox2.hide()
-       
-       self.connect(self.pb, SIGNAL("clicked()"), lambda: self.button_add()) #add
-       self.connect(self.pb1, SIGNAL("clicked()"), lambda: self.button_close()) #close
-       self.connect(self.pb2, SIGNAL("clicked()"), lambda: self.button_edit()) #edit
-       self.connect(self.pb3, SIGNAL("clicked()"), lambda: self.button_delete()) #delete
-       self.connect(self.pb4, SIGNAL("clicked()"), lambda: self.button_save()) #save
-       self.connect(self.pb5, SIGNAL("clicked()"), lambda: self.button_reset()) #reset
-       
-       self.pb4.hide()
-       self.pb7.hide()
-       
-       grid = QGridLayout()
-       grid.addWidget(self.groupBox1, 0, 0)
-       grid.addWidget(self.groupBox2, 1, 0)
+        self.schoolAddress = QLabel("Address")
+        self.schoolAddressData = QLineEdit()
+        self.schoolAddressData.setObjectName("address")
+        self.schoolAddressData.setPlaceHolderText("e.g. 12. Lincon Street ")
         
-       self.setLayout(grid)
-       self.setStyleSheet(stylesheet)
-       self.setWindowIcon(QIcon(self.titleIcon))
-       self.setWindowTitle(self.pagetitle)
-         
-    def makeTree(self):
-       self.tree.clear()
-       arr = Db().selectn('session','', 5)
-       self.hold_data = {}
-       self.hold_mdata = {}
-       self.hold_data_add = {}
-       self.hold_data_add_item = {}
-       current = time.time()
-      
-       if self.titleSub and self.titleSub > 0:
-           if arr and len(arr) > 0:
-               for val in arr:
-                 ch = Valid().pullData('terms', '', {'sessionID':val['id']})
-                 child = QTreeWidgetItem(self.tree)
-                 child.setFlags(child.flags() | Qt.ItemIsUserCheckable)
-                 child.setText(0, str(val['name']).upper())
-                 try:
-                     ts = int(float(val['start_date']))
-                 except:
-                     ts = int(current)
-                 ts = datetime.utcfromtimestamp(ts).strftime('%d-%m-%Y')
-                 child.setText(1, ts)
-                 try:
-                     ts1 = int(float(val['end_date']))
-                 except:
-                     ts1 = int(current)
-                 ts1 = datetime.utcfromtimestamp(ts1).strftime('%d-%m-%Y')
-                 child.setText(2, ts1)
-                 self.hold_data[val['id']] = child
-                 self.hold_mdata[val['id']] = child
-                 if (val['active'] == 0):
-                     child.setCheckState(0, Qt.Checked)
-                 else:
-                     child.setCheckState(0, Qt.Unchecked)
-              
-                  
-                 for va in ch:
-                     child1 = QTreeWidgetItem(child)
-                     child1.setFlags(child1.flags() | Qt.ItemIsUserCheckable)
-                     child1.setText(0, str(va['name']).upper())
-                     try:
-                         ts2 = int(float(va['start_date']))
-                     except:
-                         ts2 = int(current)
-                     ts2 = datetime.utcfromtimestamp(ts2).strftime('%d-%m-%Y')
-                     child1.setText(1, ts2)
-                     try:
-                         ts3 = int(float(va['end_date']))
-                     except:
-                         ts3 = int(current)
-                     ts3 = datetime.utcfromtimestamp(ts3).strftime('%d-%m-%Y')
-                     child1.setText(2, ts3)
-                     self.hold_data[va['id']] = child1
-                     if (va['active'] == 0):
-                         child1.setCheckState(0, Qt.Checked)
-                     else:
-                         child1.setCheckState(0, Qt.Unchecked)
-                         
-                 child1 = QTreeWidgetItem(child)
-                 child1.setFlags(child1.flags() | Qt.ItemIsUserCheckable)
-                 child1.setText(0, 'Add New Item')
-                 self.hold_data_add_item[val['id']] = child1
-       else:
-           if arr and len(arr) > 0:
-               for val in arr:
-                 child = QTreeWidgetItem(self.tree)
-                 child.setFlags(child.flags() | Qt.ItemIsUserCheckable)
-                 child.setText(0, str(val['name']).upper())
-                 child.setText(1, str(val['abbrv']).upper())
-                 self.hold_data[val['id']] = child
-                 if (val['active'] == 0):
-                     child.setCheckState(0, Qt.Checked)
-                 else:
-                     child.setCheckState(0, Qt.Unchecked)
-                 
-       child = QTreeWidgetItem(self.tree)
-       child.setFlags(child.flags() | Qt.ItemIsUserCheckable)
-       child.setText(0, 'Add New')
-       self.hold_data_add['addnew'] = child
-    
-    def getChecked(self):
-        arr_hold = []
-        for i in self.hold_data:
-            if self.hold_data[i].checkState(0) == Qt.Checked:
-                arr_hold.append(i) 
-                
-    def getSelected(self):
-        r = None
-        for i in self.hold_data:
-            if self.hold_data[i].isSelected():
-               r = i
-        if r and r > 0:
-            self.groupBox2.show()
-            return r
-        else:
-            self.groupBox2.hide()
+        self.schoolCity = QLabel("City")
+        self.schoolCityData = QLineEdit()
+        self.schoolCityData.setObjectName("city")
+        self.schoolCityData.setPlaceHolderText(" ")
+        
+        self.schoolState = QLabel("State/Region")
+        self.schoolStateData = QLineEdit()
+        self.schoolStateData.setObjectName("state")
+        self.schoolStateData.setPlaceHolderText("California")
+        
+        self.schoolCountry = QLabel("Country")
+        self.schoolCountryData = QLineEdit()
+        self.schoolCountryData.setObjectName("country")
+        self.schoolCountryData.setPlaceHolderText("USA")
+        
+        self.schoolEmail1 = QLabel("Email")
+        self.schoolEmail1Data = QLineEdit()
+        self.schoolEmail1Data.setObjectName("email")
+        self.schoolEmail1Data.setPlaceHolderText("e.g. school@mail.com")
+        
+        self.schoolEmail2 = QLabel("Alternate Email")
+        self.schoolEmail2Data = QLineEdit()
+        self.schoolEmail2Data.setObjectName("aemail")
+        self.schoolEmail2Data.setPlaceHolderText("e.g. school@mail.com")
+        
+        self.schoolPhone1 = QLabel("Phone Number")
+        self.schoolPhone1Data = QLineEdit()
+        self.schoolPhone1Data.setObjectName("phone")
+        self.schoolPhone1Data.setPlaceHolderText("e.g.")
+        
+        self.schoolPhone2 = QLabel("Alternate Phone Number")
+        self.schoolPhone2Data = QLineEdit()
+        self.schoolPhone2Data.setObjectName("aphone")
+        self.schoolPhone2Data.setPlaceHolderText("e.g.")
+        
+        self.schoolZip = QLabel("Zip Code")
+        self.schoolZipData = QLineEdit()
+        self.schoolZipData.setObjectName("zip")
+        self.schoolZipData.setPlaceHolderText("XXXXXX")
+        
+        self.schoolPmb = QLabel("Mail Box/Bag")
+        self.schoolPmbData = QLineEdit()
+        self.schoolPmbData.setObjectName("pmb")
+        self.schoolPmb2Data.setPlaceHolderText("e.g. P.O.Box 2020")
+        
+        self.connect(self.pbf, SIGNAL("clicked()"), lambda: self.font_picker())
+        
+        Form1.addRow(self.schoolName, self.schoolNameData)
+        Form1.addRow(self.schoolAlias, self.schoolAliasData)
+        Form1.addRow(self.schoolMotto, self.schoolMottoData)
+        Form1.addRow(self.schoolAddress, self.schoolAddressData)
+        Form1.addRow(self.schoolCity, self.schoolCityData)
+        Form1.addRow(self.schoolState, self.schoolStateData)
+        Form1.addRow(self.schoolCountry, self.schoolCountryData)
+        Form1.addRow(self.schoolEmail1, self.schoolEmail1Data)
+        Form1.addRow(self.schoolEmail2, self.schoolEmail2Data)
+        Form1.addRow(self.schoolPhone1, self.schoolPhone1Data)
+        Form1.addRow(self.schoolPhone2, self.schoolPhone2Data)
+        Form1.addRow(self.schoolZip, self.schoolZipData)
+        Form1.addRow(self.schoolPmb, self.schoolPmbData)
+        
+        Gbo = QGridLayout()
+        Gbo.addLayout(Form1, 0, 0)
+        
+        groupBox1 = QGroupBox('Academic Report Setup')
+        groupBox1.setLayout(Gbo)
+        
+        self.pb = QPushButton()
+        self.pb.setObjectName("Add")
+        self.pb.setText("Save")
+        
+        self.pb1 = QPushButton()
+        self.pb1.setObjectName("Cancel")
+        self.pb1.setText("Cancel")
+        
+        hbo = QHBoxLayout()
+        hbo.addWidget(self.pb)
+        hbo.addStretch()
+        hbo.addWidget(self.pb1)
+        
+        groupBox2 = QGroupBox('')
+        groupBox2.setLayout(hbo)
             
-    def getSession(self):
-        self.sessionID = None
-        for i in self.hold_data_session:
-            if self.hold_data_session[i].isSelected():
-               r = i
-        if r and r > 0:
-          self.sessionID = r   
+        grid = QGridLayout()
+        grid.addWidget(groupBox1, 0, 0)
+        grid.addWidget(groupBox2, 1, 0)
+        
+        self.setLayout(grid)
+        self.connect(self.pb, SIGNAL("clicked()"), lambda: self.button_click(self))
+        self.connect(self.pb2, SIGNAL("clicked()"), lambda: self.button_template(self))
+        self.connect(self.pb1, SIGNAL("clicked()"), lambda: self.button_close(self))
+       
+        self.setWindowTitle(self.pagetitle)
+
+        
+    def color_picker(self):
+        self.cp = QColorDialog.getColor()
+        self.le5.setText(self.cp.name())
+        self.pbc.setStyleSheet("background-color:"+self.cp.name() +"")
+        return self.cp.name()
     
-    def getSelection(self):
-        self.le1.clear()
-        currentDate = QDate()
-        self.fromData.setDate(currentDate.currentDate())
-        self.toData.setDate(currentDate.currentDate())
-        self.sessionMain = False
-        if self.hold_data_add['addnew'].isSelected():
-            self.groupBox2.setTitle('Add New')
-            self.groupBox2.show()
-            self.sessionMain = True
-            self.sessionID = False
+    def font_picker(self):
+        item, ok = QFontDialog.getFont()
+        if ok is True:
+            self.le6.setText(item.toString())
         else:
-            self.sessionMain = False
-            r = None
-            for i in self.hold_data_add_item:
-                if self.hold_data_add_item[i].isSelected():
-                    r = i
-            if r:
-                g = Db()
-                v = g.selectn('datas', '', 1, {'id':r})
-                vname = str(v['name']).upper()
-                self.groupBox2.setTitle('ADD '+str(vname)+' ITEM')
-                self.sessionID = v['swessionID']
-                self.groupBox2.show()
-            else:
-                self.groupBox2.setTitle('Add')
-                self.sessionID = False
-                self.groupBox2.hide()
-        
-                
-    def setActive(self):
-        g = Db()
-        for i in self.hold_data:
-            if self.hold_data[i].checkState(0) == Qt.Checked:
-               g.update('datas', {'active':0}, {'id':i})
-            else:
-               g.update('datas', {'active':1}, {'id':i})
-                  
-    def button_add(self):
-        s1 = self.le1.text()
-        _datef = self.fromData.date().toPyDate()
-        _datef = time.mktime(_datef.timetuple())
-        _datee = self.toData.date().toPyDate()
-        _datee = time.mktime(_datee.timetuple())
-        g = Db()
-        
-        if self.sessionID and self.sessionID > 0:
-            try:
-                if(len(s1) > 0):
-                    y = { 'name':s1.lower(), 'start_date':_datef,'sessionID':self.sessionID,  'end_date':_datee, 'active':0}
-                    g.insert('terms', y)
-                    self.makeTree()
-                    self.button_reset()
-                else:
-                    pass
-            except:
-                pass
-        else:
-            try:
-                if(len(s1) > 0):
-                    y = { 'name':s1.lower(), 'start_date':_datef, 'end_date':_datee, 'active':0}
-                    g.insert('session', y)
-                    self.makeTree()
-                    self.button_reset()
-                else:
-                    pass
-            except:
-                pass
-        
-    def button_save(self):
-        row = self.editrow
-        
-        s1 = self.le1.text()
-        _datef = self.fromData.date().toPyDate()
-        _datef = time.mktime(_datef.timetuple())
-        _datee = self.toData.date().toPyDate()
-        _datee = time.mktime(_datee.timetuple())
-        
-        g = Db()
-        
-        if(len(s1) > 0)  and row and  row > 0:
-            if self.sessionID and self.sessionID > 0:
-                try:
-                    if(len(s1) > 0):
-                        y = { 'name':s1.lower(), 'start_date':_datef,'sessionID':self.sessionID,  'end_date':_datee, 'active':0}
-                        z = {'id':row}
-                        g.update('terms', y, z)
-                        self.makeTree()
-                        self.button_reset()
-                    else:
-                        pass
-                except:
-                    pass
-            else:
-                try:
-                    if(len(s1) > 0):
-                        y = { 'name':s1.lower(), 'start_date':_datef, 'end_date':_datee, 'active':0}
-                        z = {'id':row}
-                        g.update('session', y, z)
-                        self.makeTree()
-                        self.button_reset()
-                    else:
-                        pass
-                except:
-                    pass
-        
-    def button_delete(self):
-        row = self.getSelected()
-        g = Db()
-        try:
-            if row and  row > 0:
-                y = {'abbrv':'', 'active':2}
-                z = {'id':row}
-                g.update('datas', y, z)
-                self.makeTree()
-            else:
-                pass
-        except:
-            pass
-        
-    def button_reset(self):
-        self.le1.clear()
-        currentDate = QDate()
-        self.fromData.setDate(currentDate.currentDate())
-        self.toData.setDate(currentDate.currentDate())
-        self.groupBox2.setTitle('Add')
-        self.groupBox2.hide()
-        self.pb.show()
-        self.pb4.hide()
-        
-    def button_edit(self):
-        row = self.getSelected()
-        if row:
-            self.groupBox2.setTitle('Edit')
-            self.editrow = row
-            g = Db()
-            data = g.selectn('datas', '', 1, {'id':row})
-            currentDate = QDate()
-            try:
-                self.le1.setText(data['name'])
-            except:
-                self.le1.setText('')
-            try:
-                self.fromData.setDate(data['start_date'])
-            except:
-                self.fromData.setDate(currentDate.currentDate())
-            try:
-                self.toData.setDate(data['end_date'])
-            except:
-                self.toData.setDate(currentDate.currentDate())
-            self.pb.hide()
-            self.pb4.show()
-        
-    def button_close(self):
+            self.le6.setText('teal')
+        self.pbf.setStyleSheet("font-family:"+self.cp.name() +"")
+    
+    def button_close(self, b):
+        from dialogtermca import TermCaDialog
         self.close()
+        post = TermCaDialog(self.term, self.termname )
+        post.show()
+        
+    
+         
+    
+        
+        
+       
+                
+        

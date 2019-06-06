@@ -10,7 +10,6 @@ from connectdata import Dat
 class StudentTable():
     
     def __init__(self, session=None , studentID=[], classID=[], classUnitID =[], group = None):
-        #super(StudentTable, self).__init__()
         self.session = session
         self.studentID = studentID
         self.classID = classID
@@ -58,7 +57,6 @@ class StudentTable():
         ids = self.getIDs(students)
         rep = Dat()
         student_class = rep.classUnitSubject(self.session, ids)
-        print(student_class)
         return [students, student_class] 
     
     def classStudent(self):
@@ -66,12 +64,13 @@ class StudentTable():
         get all students from a class 
         use
         '''
+        #print(self.classID[0])
         allUnits = self.getClassUnit(self.classID[0])
         d = self.pullStudentsID(self.session, allUnits, self.group)
         return d
     
     def classStudents(self):
-        allUnits = self.getClassUnit(self.classUnitID)
+        allUnits = self.getClassUnit(self.classUnitID[0])
         d = self.pullStudentsID(self.session, allUnits, self.group)
         return d
     
@@ -93,6 +92,7 @@ class StudentTable():
     
     def classUnitStudent(self):
         d = self.pullStudentsID(self.session, self.classUnitID, self.group)
+        
         return d
     
     def classMoveStudent(self, session, moveclass, students):
@@ -165,14 +165,16 @@ class StudentTable():
         students = cn.selectStudentAllEx(self.a)
         return students
     
-    def getClassUnit(self, *a):
-        self.a = a[0]
+    def getClassUnit(self, a):
+        self.a = a
         arr = []
         g = Db()
-        si = g.select('datas', '', '', {'subID':self.a})
+        # confirm its nt a class unit
+
+        si = g.selectn('datas', '', '', {'subID':self.a})
         for s in si:
-            arr.append(s[0])
-            
+            arr.append(s['id'])
+      
         return arr
     
     def getClassName(self, a={}):
@@ -199,7 +201,10 @@ class StudentTable():
     def getIDs(self, b):
         students = []
         for a in b:
-            students.append(int(a[0]))
+            try:
+                students.append(int(a['id']))
+            except:
+                pass
             
         return students
     

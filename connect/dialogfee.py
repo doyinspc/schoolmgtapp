@@ -1,16 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Sat Jan  5 13:26:31 2019
-
-@author: CHARLES
-"""
-
-# -*- coding: utf-8 -*-
-"""
-Created on Sat Aug 11 10:49:12 2018
-
-@author: CHARLES
-"""
 
 # -*- coding: utf-8 -*-
 """

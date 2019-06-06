@@ -6,6 +6,8 @@ Created on Sun Jun 24 04:41:40 2018
 import sqlite3
 from tables import Tables
 import smtplib
+import pandas as pd
+import os
 
 class Db(object):
     dbs = 'test.db';
@@ -115,9 +117,24 @@ class Db(object):
         sql = t.students()
         self.logConnect(sql)
         
+    def createSession(self):
+        t = Tables()
+        sql = t.session()
+        self.logConnect(sql)
+    
+    def createTerm(self):
+        t = Tables()
+        sql = t.terms()
+        self.logConnect(sql)
+        
     def createStaffs(self):
         t = Tables()
         sql = t.staffs()
+        self.logConnect(sql)
+        
+    def createDatas(self):
+        t = Tables()
+        sql = t.datas()
         self.logConnect(sql)
         
     def createData(self):
@@ -241,7 +258,7 @@ class Db(object):
         self.db = db
         f = self.convert(self.a)
         sql = "INSERT INTO "+ self.db +" "+f[2]+" VALUES "+ f[5] 
-        print(sql)
+        
         num = None
         try:
             conn = sqlite3.connect(self.dbs)
@@ -477,7 +494,7 @@ class Db(object):
         select form database tables
         give table name, columns, number of rows,
         '''
-        print(text)
+        
         self.db = db
         self.classunit = classunit
         new1 = ''
@@ -498,7 +515,7 @@ class Db(object):
         if len(new1) > 0:
             new2 = ' WHERE ' + new1 +' '+new3
             
-        sql = "SELECT *, `"+self.db +"`.`id` as cid, (SELECT abbrv FROM datas WHERE id = `"+self.db +"`.`classID` LIMIT 1) as classunitname, (SELECT abbrv FROM datas WHERE id = (SELECT subID FROM datas WHERE id = `"+self.db +"`.`classID` LIMIT 1) LIMIT 1) as classname  FROM  `students`  LEFT JOIN `"+ self.db +"` ON `students`.`id` = `"+self.db+"`.`studentID` "+new2
+        sql = "SELECT *, `students`.`id` as id, `"+self.db +"`.`id` as cid, (SELECT abbrv FROM datas WHERE id = `"+self.db +"`.`classID` LIMIT 1) as classunitname, (SELECT abbrv FROM datas WHERE id = (SELECT subID FROM datas WHERE id = `"+self.db +"`.`classID` LIMIT 1) LIMIT 1) as classname  FROM  `students`  LEFT JOIN `"+ self.db +"` ON `students`.`id` = `"+self.db+"`.`studentID` "+new2
         #print(sql)
         try:
             conn = sqlite3.connect(self.dbs)
@@ -559,6 +576,42 @@ class Db(object):
             conn.close()
         except sqlite3.Error as e:
             print(e)
+            
+    def selectPandas(self, db):
+        '''
+        select form database tables
+        give table name, columns, number of rows,
+        '''
+                   
+        sql = "SELECT * FROM  `"+db+"`"
+        
+        try:
+            conn = sqlite3.connect(self.dbs)
+            df = pd.read_sql_query(sql, conn)
+            conn.close()
+            return df
+        except sqlite3.Error as e:
+            print(e)
+    
+    def replacePandas(self, db):
+        '''
+        select form database tables
+        give table name, columns, number of rows,
+        '''
+        f_path = '_temp/'+db+'.csv'
+        try:
+            if os.path.isfile(f_path):
+                conn = sqlite3.connect(self.dbs)
+                df = pd.read_csv(f_path)
+                df.to_sql(db, conn , if_exists='replace', index=False)
+                conn.close()
+                print(f_path)
+                return df
+            else:
+                print('fail')
+                pass
+        except sqlite3.Error as e:
+            print('Error: '+ e)
     
     def selectExpenseDate(self, db, start, end):
         '''
@@ -723,7 +776,6 @@ class Db(object):
                 
         new2 = ' WHERE ' + new2
         
-        
         sql = "SELECT `students`.`id` as id, `"+db+"`.`subjectID` as subjectID, `"+db+"`.`caID` as caID, `"+db+"`.`studentID` as studentID, `"+db+"`.`score` as score FROM `students` LEFT JOIN `"+db+"` ON  `"+db+"`.`studentID`=  `students`.`id` "+new2
         
         try:
@@ -737,6 +789,59 @@ class Db(object):
         except sqlite3.Error as e:
             print(e)
 
+    def selectStudentsCaSum(self, session , student = [], subject = [], ca = []):
+        '''
+        select form database tables
+        give table name, columns, number of rows,
+        '''
+        self.session = session
+        self.student = student
+        self.subject = subject
+        self.ca = ca
+        db = 'student_result'+str(self.session)
+        new2 =''
+        
+        if len(self.student) > 0:
+            new = list(set(self.student))
+            new1 = self.list_to_or('`students`.`id`', new)
+            new2 = new1
+        
+        if len(self.subject) < 0:
+            new = list(set(self.subject))
+            new1 = self.list_to_or('`'+db+'`.`subjectID`', new)
+            if(len(new) > 0):
+                if(len(new2) > 0):
+                    new2 += 'AND '+new1
+                else:
+                    new2 += new1
+            else:
+                new2 += ' ' + new1
+            
+        if len(self.ca) > 0:
+            new = list(set(self.ca))
+            new1 = self.list_to_or('`'+db+'`.`caID`', new)
+            if(len(new) > 0):
+                if(len(new2) > 0):
+                    new2 += 'AND '+new1
+                else:
+                    new2 += new1
+            else:
+                new2 += ' ' + new1
+                
+        new2 = ' WHERE ' + new2
+        
+        sql = "SELECT `students`.`id` as id, `"+db+"`.`subjectID` as subjectID, GROUP_CONCAT(`"+db+"`.`caID`) as caID, `"+db+"`.`studentID` as studentID, SUM(`"+db+"`.`score`) as score FROM `students` LEFT JOIN `"+db+"` ON  `"+db+"`.`studentID`=  `students`.`id` "+new2+" GROUP BY `students`.`id`, `"+db+"`.`subjectID` "
+        
+        try:
+            conn = sqlite3.connect(self.dbs)
+            conn.row_factory = lambda C, R: {c[0]: R[i] for i, c in enumerate(C.description)}
+            c = conn.cursor()
+            c.execute(sql)
+            return c.fetchall()
+                
+            conn.close()
+        except sqlite3.Error as e:
+            print(e)
     
     def selectStudentsCaRep(self, session , student = [], subject = [], ca = []):
         '''
@@ -822,8 +927,53 @@ class Db(object):
         new2 = ' WHERE ' + new2
         
         
-        sql = "SELECT `students`.`id` as id, `"+db+"`.`caID` as caID, `"+db+"`.`studentID` as studentID, `"+db+"`.`score` as score FROM `students` LEFT JOIN `"+db+"` ON  `"+db+"`.`studentID`=  `students`.`id` "+new2
+        sql = "SELECT `students`.`id` as id, `"+db+"`.`caID` as caID, (SELECT subID FROM datas WHERE id = caID LIMIT 1) AS subjectID, `"+db+"`.`studentID` as studentID, `"+db+"`.`score` as score FROM `students` LEFT JOIN `"+db+"` ON  `"+db+"`.`studentID`=  `students`.`id` "+new2
         
+        try:
+            conn = sqlite3.connect(self.dbs)
+            conn.row_factory = lambda C, R: {c[0]: R[i] for i, c in enumerate(C.description)}
+            c = conn.cursor()
+            c.execute(sql)
+            return c.fetchall()
+                
+            conn.close()
+        except sqlite3.Error as e:
+            print(e)      
+    def selectStudentsAffectiveSum(self, session , student = [], subject = [], ca = []):
+        '''
+        select form database tables
+        give table name, columns, number of rows,
+        '''
+        self.session = session
+        self.student = student
+        self.subject = subject
+        self.ca = ca
+        db = 'student_affective'+str(self.session)
+        new2 =''
+        
+        if len(self.student) > 0:
+            new = list(set(self.student))
+            new1 = self.list_to_or('`students`.`id`', new)
+            new2 = new1
+        
+            
+        if len(self.ca) > 0:
+            new = list(set(self.ca))
+            new1 = self.list_to_or('`P`.`caID`', new)
+            if(len(new) > 0):
+                if(len(new2) > 0):
+                    new2 += 'AND '+new1
+                else:
+                    new2 += new1
+            else:
+                new2 += ' ' + new1
+                
+        new2 = ' WHERE ' + new2
+        
+        inner = '(SELECT score, caID, studentID, (SELECT subID FROM datas WHERE id = caID LIMIT 1) as pID FROM '+db+' ) AS P';
+        
+        sql = "SELECT `students`.`id` as id, `P`.`pID` as caID, GROUP_CONCAT(`P`.`caID`) as caIDs,GROUP_CONCAT(`P`.`score`) as vals, `P`.`studentID` as studentID, COUNT( `P`.`score`) as num, AVG( `P`.`score`) as score FROM `students` LEFT JOIN "+inner+" ON  `P`.`studentID`=  `students`.`id` "+new2+" GROUP BY P.pID, P.studentID"
+        #print(sql)
         try:
             conn = sqlite3.connect(self.dbs)
             conn.row_factory = lambda C, R: {c[0]: R[i] for i, c in enumerate(C.description)}
@@ -867,7 +1017,7 @@ class Db(object):
         new2 = ' WHERE ' + new2
         
         
-        sql = "SELECT `students`.`id` as id, `"+db+"`.`caID` as caID, `"+db+"`.`studentID` as studentID, `"+db+"`.`score` as score FROM `students` LEFT JOIN `"+db+"` ON  `"+db+"`.`studentID`=  `students`.`id` "+new2
+        sql = "SELECT `students`.`id` as id, `"+db+"`.`caID` as caID, (SELECT subID FROM datas WHERE id = caID LIMIT 1) AS subjectID, `"+db+"`.`studentID` as studentID, `"+db+"`.`score` as score FROM `students` LEFT JOIN `"+db+"` ON  `"+db+"`.`studentID`=  `students`.`id` "+new2
         try:
             conn = sqlite3.connect(self.dbs)
             conn.row_factory = lambda C, R: {c[0]: R[i] for i, c in enumerate(C.description)}
@@ -878,7 +1028,51 @@ class Db(object):
             conn.close()
         except sqlite3.Error as e:
             print(e)   
+    def selectStudentsPsychomotoSum(self, session , student = [], subject = [], ca = []):
+        '''
+        select form database tables
+        give table name, columns, number of rows,
+        '''
+        self.session = session
+        self.student = student
+        self.subject = subject
+        self.ca = ca
+        db = 'student_psy'+str(self.session)
+        new2 =''
+        
+        if len(self.student) > 0:
+            new = list(set(self.student))
+            new1 = self.list_to_or('`students`.`id`', new)
+            new2 = new1
+        
             
+        if len(self.ca) > 0:
+            new = list(set(self.ca))
+            new1 = self.list_to_or('`P`.`caID`', new)
+            if(len(new) > 0):
+                if(len(new2) > 0):
+                    new2 += 'AND '+new1
+                else:
+                    new2 += new1
+            else:
+                new2 += ' ' + new1
+                
+        new2 = ' WHERE ' + new2
+        
+        inner = '(SELECT score, caID, studentID, (SELECT subID FROM datas WHERE id = caID LIMIT 1) as pID FROM '+db+' ) AS P';
+        
+        sql = "SELECT `students`.`id` as id, `P`.`pID` as caID, GROUP_CONCAT(`P`.`caID`) as caIDs,GROUP_CONCAT(`P`.`score`) as vals, `P`.`studentID` as studentID, COUNT( `P`.`score`) as num, AVG( `P`.`score`) as score FROM `students` LEFT JOIN "+inner+" ON  `P`.`studentID`=  `students`.`id` "+new2+" GROUP BY P.pID, P.studentID"
+        #print(sql)
+        try:
+            conn = sqlite3.connect(self.dbs)
+            conn.row_factory = lambda C, R: {c[0]: R[i] for i, c in enumerate(C.description)}
+            c = conn.cursor()
+            c.execute(sql)
+            return c.fetchall()
+                
+            conn.close()
+        except sqlite3.Error as e:
+            print(e)        
     def selectStudentClassxx(self, db, classunit = []):
         '''
         select form database tables

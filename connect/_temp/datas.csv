@@ -1,0 +1,159 @@
+id,subID,name,abbrv,active,pubID,description
+1,1.0,Junior College 1,,1.0,1,
+2,1.0,Junior College 2,,1.0,1,
+3,2.0,GOLD,G,1.0,,
+4,1.0,Junior College 3,JSS3,0.0,1,
+5,1.0,Junior College 4,JSS4,0.0,1,
+6,2.0,SILVER,S,1.0,,
+7,4.0,GOLD,,1.0,,
+8,4.0,SILVER,S,1.0,,
+9,1.0,senior secondary 1,sss1,1.0,1,
+10,1.0,senior secondary 2,sss2,1.0,1,
+11,1.0,senior secondary 3,sss3,1.0,1,
+12,1.0,Trials,R,1.0,1,
+13,1.0,Just New,JN,1.0,,
+14,1.0,Senior Secondary 2,SSS2,1.0,1,
+15,1.0,University,UNN,1.0,1,
+16,1.0,Platoo rise,PRT,1.0,,
+17,1.0,braaayts,brt,1.0,,
+18,1.0,try Change,ggg,1.0,,
+19,1.0,jsqs,ssq,1.0,,
+20,1.0,hhhhhh,hhh,1.0,,
+21,1.0,hhhhhh,hhh,1.0,,
+22,1.0,hhhhhh,hhh,1.0,,
+23,1.0,hhhhhh,hhh,1.0,,
+24,2.0,BRONZE,B,0.0,,
+25,4.0,STEEL,ST,0.0,,
+26,4.0,BRONZE,BR,0.0,,
+27,5.0,GOLD,G,0.0,,
+28,5.0,SILVER,S,0.0,,
+29,5.0,BRONZE,B,0.0,,
+30,13.0,File,FL,0.0,,
+31,9.0,JSSX,JSXX,0.0,,
+32,,Mathematics,MATH,0.0,3,
+33,,English studies,ENG,0.0,3,
+34,,CIVIC EDUCATION,CIVIC,0.0,3,
+35,,physics,phys,0.0,3,
+36,,GOVERNMENT,GOV,0.0,3,
+37,,basic science & technology,bst,0.0,3,
+38,,geography,geo,0.0,3,
+39,,west africa exam councl,waec,0.0,4,
+40,,nigeria examination council,neco,0.0,4,
+41,,west africa examination council,waec,1.0,5,100:85:#55aa7f
+42,,nigeria examiantion council,neco,0.0,5,
+43,41.0,A,EXCELLENT,0.0,6,100:85:#55aa7f
+44,41.0,B,VERY GOOD,0.0,6,80:70:#0055ff
+45,41.0,C,GOOD,0.0,6,60:50:#ff557f
+46,,first assesment,ca1,0.0,7,
+47,,second assement,ca2,0.0,7,
+48,,examination,exam,0.0,7,
+49,,games,games,0.0,9,
+50,,workshop,wrks,0.0,9,
+51,49.0,Hand ball,HNDB,0.0,10,Very Good:Weak:#000000
+52,49.0,FootBall,FTB,0.0,10,Very Good:Weak:#000000
+53,50.0,Handling Machines,HBNM,0.0,10,Excellent:Weak:#00ff00
+54,,relationships,rel,0.0,11,
+55,54.0,Relationtioship with teachers,teachers,0.0,12,Friendly:Distant:#000000
+56,54.0,Relationship with class mates,classmates,0.0,12,friendly:distant:#ff0000
+57,,ethics,ethics,0.0,11,
+58,57.0,Comliance with school rules,schoolrules,0.0,12,admirable:loss:#000000
+59,,46,20,0.0,8,
+60,,47,20,0.0,8,
+61,,48,60,0.0,8,
+62,54.0,Humility,HUM,0.0,12,ACCEPTABLE:TERRIBLE:#000000
+63,,adminstrative,admin,0.0,15,
+64,,operational,opy,0.0,15,
+65,64.0,Generator,Gen,0.0,16,0
+66,64.0,Uniform Purchase,Uni,0.0,16,0
+67,,tutuitions,tut,0.0,17,
+68,,uniform,unif,0.0,17,
+69,,chemistry,chems,0.0,3,
+70,,agricscience,agric,0.0,3,
+71,,commerce,comm,0.0,3,
+72,3.0,46,20,0.0,,
+73,3.0,47,20,0.0,,
+74,3.0,46,60,0.0,,
+75,9.0,46,20,0.0,ca,
+79,9.0,46,20,1.0,ca,
+80,9.0,47,20,0.0,ca,
+81,9.0,48,60,0.0,ca,
+82,9.0,46,20,0.0,ca,
+83,9.0,46,20,0.0,ca,
+85,9.0,"1,2,4,5,9,10,11,12,14,15",rep,0.0,rep,THIRD PARENT:::#55aa00:::#000000:::75::80::81:::41:::1::2::3::4::6::7::9::10::11::12::13::14::15::16::psytable::aff::psy::psygraph
+86,9.0,"1,2,4,5,9,10,11,12,14,15",first,0.0,temp,"TEMP:::#55aa00:::MS PGothic,8,-1,5,50,0,0,0,0,0:::47::48:::41:::1::2::3::4::6::7::8::9::10::11::12::13::14::15::psy::psygraph::psytable::aff"
+87,9.0,"1,2,4,5,9,10,11,12,14,15",rep,0.0,rep,TEMP:::#55aa00:::#000000:::75::81:::41:::1::2::3::4::6::7::8::9::10::11::12::13::14::15::psytable::aff::psy::psygraph
+88,8.0,46,20,0.0,ca,
+89,8.0,47,20,0.0,ca,
+90,8.0,48,60,0.0,ca,
+91,1.0,46,20,1.0,ca,
+92,1.0,47,20,1.0,ca,
+93,1.0,48,60,1.0,ca,
+94,1.0,"1,2,4,5,9,10,11,12,14,15",rep,0.0,rep,FIRST TERM EXAMINATION:::#55aa00:::#000000:::46::47::48:::41:::1::2::3::4::6::7::8::9::10::11::12::13::14::15::psy::psygraph::psytable::aff
+95,8.0,5,67,,fee,110000
+96,8.0,5,67,,fee,100000
+97,8.0,9,67,,fee,150000
+98,8.0,4,67,,fee,150000
+99,8.0,9,68,,fee,50000
+100,8.0,4,68,,fee,50000
+101,,text books,bookes,0.0,17,
+102,8.0,4,101,,fee,29000
+103,8.0,5,101,,fee,40000
+104,9.0,5,67,1.0,fee,100000000
+105,9.0,5,68,1.0,fee,5000000
+106,,pta levy,pta,0.0,17,
+107,,id card,id,0.0,17,
+108,,material fee,mat,0.0,17,
+109,,mattress,matt,0.0,17,
+110,9.0,5,106,1.0,fee,4000
+111,9.0,5,107,1.0,fee,1000
+112,9.0,5,108,1.0,fee,70000
+113,9.0,5,109,1.0,fee,15000
+114,,cash/impress,cash,0.0,20,
+115,,diamonds bank (001234567),diamo,0.0,20,
+116,9.0,4,67,1.0,fee,100000000
+117,9.0,5,67,1.0,fee,150000
+118,9.0,4,68,1.0,fee,5000000
+119,9.0,5,68,1.0,fee,40000
+120,9.0,4,101,1.0,fee,30000
+121,9.0,5,101,1.0,fee,30000
+122,9.0,4,106,1.0,fee,5000
+123,9.0,5,106,1.0,fee,5000
+124,9.0,5,67,1.0,fee,1500000
+125,9.0,5,68,1.0,fee,200000
+126,9.0,5,101,1.0,fee,100000
+127,63.0,Stationaries,STA,0.0,16,0
+128,63.0,Petrol,PET,0.0,16,0
+129,,stationaries,stats,0.0,15,
+130,,stationaries,stat,0.0,23,
+131,130.0,BOOKZ,BKS,0.0,16,0
+132,130.0,A4  PAPER,A4,0.0,16,0
+133,130.0,BIROS,BIRO,0.0,16,0
+134,,firstbanks,first,0.0,20,
+135,,fineart,fart,0.0,3,
+136,,creativeart,cart,0.0,3,
+137,,gold,g,1.0,1,
+138,,silver,s,1.0,1,
+139,1.0,gold,g,0.0,1x,
+140,,gold,g,1.0,1,
+141,10.0,silver,s,0.0,1x,
+142,10.0,gold,s,0.0,1x,
+143,11.0,gold,g,0.0,1x,
+144,11.0,silver,s,0.0,1x,
+145,,chemicals,chen,0.0,23,
+146,145.0,sodium,na,0.0,23x,
+155,,color2,,,datas,#55557f
+161,,city,,,datas,Miami
+162,,country,,,datas,USA
+163,,color1,,,datas,#ff5500
+164,,state,,,datas,California
+165,,address,,,datas,12 Miami beach
+166,,motto,,,datas,learning for future
+167,,email1,,,datas,best@email.com
+168,,zip,,,datas,8000123
+169,,phone2,,,datas,23400102023
+170,,phone1,,,datas,23400000000
+171,,alias,,,datas,Heritage
+172,,pmb,,,datas,P.O.BOX 4045
+173,,email2,,,datas,"secondbest@email,com"
+174,,namex,,,datas,Heritage School
+175,,logo,,,datas,logo.png

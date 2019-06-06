@@ -1,0 +1,3 @@
+SAVED_DATE=1554070847.33
+ SAVED_TABLES=['school_awards3', 'school_expenses3', 'school_mails3', 'school_medicals3', 'school_stores3', 'student_affective7', 'student_class7', 'student_fee7', 'student_pay7', 'student_psy7', 'student_result7', 'student_subject7', 'student_affective8', 'student_class8', 'student_fee8', 'student_pay8', 'student_psy8', 'student_result8', 'student_subject8', 'student_affective9', 'student_class9', 'student_fee9', 'student_pay9', 'student_psy9', 'student_result9', 'student_subject9', 'student_affective14', 'student_class14', 'student_fee14', 'student_pay14', 'student_psy14', 'student_result14', 'student_subject14', 'session', 'terms', 'students', 'datas']
+ SAVED_IDS=[3]

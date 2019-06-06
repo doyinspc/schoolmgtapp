@@ -134,5 +134,6 @@ class SubjectCaDialog(QDialog):
             else:
                pass
                  
+     
         return [_subject, self.prime] 
     

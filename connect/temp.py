@@ -9,6 +9,7 @@ from PyQt4.QtWebKit import QWebView
 from connect import Db
 from connectdata import Dat
 from frmstudent import StudentForm
+from frmstaff import StaffForm, StaffFormEdit, StaffFormDetails, StaffAccess
 from frmstudentedit import StudentEditForm
 from frmstudentprofile import StudentProfile
 from frmgrade import GradeForm
@@ -21,14 +22,22 @@ from dialogaffective import AffectiveCaDialog
 from dialogpsychomoto import PsychomotoCaDialog
 from dialogchangeclass import ChangeClassDialog, RemoveClassDialog, SubjectClassDialog
 from dialogexpenses import ExpensesDialog
+from dialogdata import DataDialog, LogoDialog, OfflineDialog, OfflinerDialog
 from dialogstore import StoreDialog
 from printtable import PrintTable
 from tablereport import TableProfile
 from collections import defaultdict
 from jinja2 import Template
+from validate import Valid, Headers
+from profile import Profile
+import pandas as pd
+from PIL import Image
+from PIL.ImageQt import ImageQt
 import numbers
+import os
 import sys
 import sip
+import time
 from datetime import datetime
 #import spec
 class Window(QtGui.QMainWindow):
@@ -48,7 +57,9 @@ class Window(QtGui.QMainWindow):
         self.quicksand = QtGui.QFont('Quicksand-Light', 17)
         self.poiretone = QtGui.QFont('PoiretOne-Regular', 20)
         self.sarala = QtGui.QFont('Sarala-Regular', 15)
-        
+        self.table_sub_state = -2
+        self.table_session = -1
+        self.table_term = -1
         self.report_table_holder = []
         #table font and header
         self.tableFont = QtGui.QFont()
@@ -100,7 +111,7 @@ class Window(QtGui.QMainWindow):
                act1 = str(arr[j]).upper()
                studs = stud.addMenu(QtGui.QIcon("icons/calendar1.png"),act1)
     
-               st = QtGui.QAction(QtGui.QIcon("icons/building.png"),'Class', self)
+               st = QtGui.QAction(QtGui.QIcon("icons/building.png"), 'Class', self)
                st.triggered.connect(lambda state, x = j: self.myTableClassUnit(0, x))
                studs.addAction(st)
                
@@ -108,23 +119,23 @@ class Window(QtGui.QMainWindow):
                fe.triggered.connect(lambda state, x = j: self.myTableClassUnitFee(0, x))
                studs.addAction(fe)
                
-               ex = QtGui.QAction(QtGui.QIcon("icons/expenses.png"), 'Expenses', self)
+               ex = QtGui.QAction(QtGui.QIcon("icons/exp.png"), 'Expenses', self)
                ex.triggered.connect(lambda state, x = j: self.getSessionData(1, x))
                studs.addAction(ex)
                
-               ac = QtGui.QAction(QtGui.QIcon("icons/banks.png"), 'Accounts', self)
+               ac = QtGui.QAction(QtGui.QIcon("icons/bnk.png"), 'Accounts', self)
                ac.triggered.connect(lambda state, x = j: self.getSessionData(2, x))
                studs.addAction(ac)
                
-               ma = QtGui.QAction(QtGui.QIcon("icons/mail.png"), 'Mails', self)
+               ma = QtGui.QAction(QtGui.QIcon("icons/mails.png"), 'Mails', self)
                ma.triggered.connect(lambda state, x = j: self.getSessionData(3, x))
                studs.addAction(ma)
                
-               co = QtGui.QAction(QtGui.QIcon("icons/mail.png"), 'Good Conducts', self)
+               co = QtGui.QAction(QtGui.QIcon("icons/co.png"), 'Good Conducts', self)
                co.triggered.connect(lambda state, x = j: self.getSessionData(4, x))
                studs.addAction(co)
                
-               mc = QtGui.QAction(QtGui.QIcon("icons/mail.png"), 'Misconducts', self)
+               mc = QtGui.QAction(QtGui.QIcon("icons/ms.png"), 'Misconducts', self)
                mc.triggered.connect(lambda state, x = j: self.getSessionData(5, x))
                studs.addAction(mc)
                
@@ -187,7 +198,6 @@ class Window(QtGui.QMainWindow):
             for k1 in  all_class_students[k]['subs']:
                 act1 = str(all_class_students[k]['subs'][k1]).upper()
                 st = stud.addMenu(QtGui.QIcon("icons/users.png"), act1)
-                               
                 #all
                 aact1 = 'All Sex'
                 sta = QtGui.QAction(QtGui.QIcon("icons/users.png"), aact1, self)
@@ -210,7 +220,7 @@ class Window(QtGui.QMainWindow):
         sessionss = self.getTerm()
         for k in sessionss:
             self.d_sessionData.addItem(sessionss[k], k)
-          
+      
     def dropdownStudent(self):
         clasz = self.classLoading()
         self.d_classData.clear()
@@ -226,52 +236,44 @@ class Window(QtGui.QMainWindow):
         self.statusBar()
         
         mainMenu = self.menuBar()
-        
         #file menu
         sessionIcon = QtGui.QIcon("icons/four-black-squares.png")
         fileMenu = mainMenu.addMenu(sessionIcon, '&File')
         
-        schoolMenu = QtGui.QAction(QtGui.QIcon("icons/building.png"), 'School Info.', self)
-        schoolMenu.setShortcut('CTRL+L')
-        schoolMenu.setStatusTip('School Data')
-        schoolMenu.triggered.connect(self.lunchForm)
+        schoolLogo = QtGui.QAction(QtGui.QIcon("icons/insert-picture.png"), 'School Logo', self)
+        schoolLogo.setStatusTip('School Logo')
+        schoolLogo.triggered.connect(self.lunchLogoDialog)
         
-        backupOffMenu = QtGui.QAction(QtGui.QIcon("icons/upload.png"), '&Backup to Offline Storage', self)
-        backupOffMenu.setShortcut('CTRL+B+O')
+        backupOffMenu = QtGui.QAction(QtGui.QIcon("icons/download.png"), '&Backup to Offline Storage', self)
         backupOffMenu.setStatusTip('offlineb')
-        backupOffMenu.triggered.connect(self.lunchForm)
+        backupOffMenu.triggered.connect(self.lunchOBackupDialog)
         
-        restoreOffMenu = QtGui.QAction(QtGui.QIcon("icons/download.png"), '&Restore from Storage', self)
-        restoreOffMenu.setShortcut('CTRL+B+R')
+        restoreOffMenu = QtGui.QAction(QtGui.QIcon("icons/upload.png"), '&Restore from Storage', self)
         restoreOffMenu.setStatusTip('offlinec')
-        restoreOffMenu.triggered.connect(self.lunchForm)
+        restoreOffMenu.triggered.connect(self.lunchORestoreDialog)
         
         backupOnMenu = QtGui.QAction(QtGui.QIcon("icons/cloud-upload.png"), '&Cloud Backup.', self)
-        backupOnMenu.setShortcut('CTRL+B+C')
         backupOnMenu.setStatusTip('onlineb')
         backupOnMenu.triggered.connect(self.lunchForm)
         
         restoreOnMenu = QtGui.QAction(QtGui.QIcon("icons/cloud-download.png"), '&Restore from Cloud', self)
-        restoreOnMenu.setShortcut('CTRL+B+L')
         restoreOnMenu.setStatusTip('onliner')
         restoreOnMenu.triggered.connect(self.lunchForm)
         
         userMenu = QtGui.QAction(QtGui.QIcon("icons/user.png"), '&Users', self)
-        userMenu.setShortcut('CTRL+U')
         userMenu.setStatusTip('user')
         userMenu.triggered.connect(self.lunchForm)
         
-        schoolMenu = QtGui.QAction(QtGui.QIcon("icons/building.png"),'Sc&hool Info.', self)
-        schoolMenu.setShortcut('CTRL+L')
+        schoolMenu = QtGui.QAction(QtGui.QIcon("icons/building.png"),'Sc&hool Data.', self)
         schoolMenu.setStatusTip('School Data')
-        schoolMenu.triggered.connect(self.lunchForm)
+        schoolMenu.triggered.connect(self.lunchDataDialog)
         
         exitMenu = QtGui.QAction(QtGui.QIcon("icons/remove-button.png"), '&Exit', self)
-        exitMenu.setShortcut('CTRL+Q')
         exitMenu.setStatusTip('Close Application')
         exitMenu.triggered.connect(self.lunchForm)
         
         fileMenu.addAction(schoolMenu)
+        fileMenu.addAction(schoolLogo)
         fileMenu.addAction(backupOffMenu)
         fileMenu.addAction(restoreOffMenu)
         fileMenu.addAction(backupOnMenu)
@@ -291,9 +293,13 @@ class Window(QtGui.QMainWindow):
         self.menuStudent()
         
         #staff menu
-        #staffIcon = QtGui.QIcon("img/mstudent.png")
-        #staffMenu = mainMenu.addMenu(staffIcon, '&Staff')
-        #staffMenu.addAction(extractQuit)
+        staffIcon = QtGui.QIcon("img/mstudent.png")
+        staffMenu = mainMenu.addMenu(staffIcon, '&Staff')
+        
+        addStaffMenu = QtGui.QAction(QtGui.QIcon("icons/building.png"),'Add Staff.', self)
+        addStaffMenu.setStatusTip('Add Staff')
+        addStaffMenu.triggered.connect(self.lunchStaffForm)
+        staffMenu.addAction(addStaffMenu)
 
         #1 account
         #2 subjects
@@ -363,14 +369,32 @@ class Window(QtGui.QMainWindow):
         storeMenu.setStatusTip('set Store items')
         storeMenu.triggered.connect(lambda: self.lunchSettings(5))
         
+        pensionIcon = QtGui.QIcon("img/icostore.png")
+        pensionMenu = QtGui.QAction(pensionIcon, 'Pension Administrators', self)
+        pensionMenu.setStatusTip('set Pension Administrators')
+        pensionMenu.triggered.connect(lambda: self.lunchSettings(11))
+        
+        healthIcon = QtGui.QIcon("img/icostore.png")
+        healthMenu = QtGui.QAction(healthIcon, 'Health Insurance Administrators', self)
+        healthMenu.setStatusTip('set Pension Administrators')
+        healthMenu.triggered.connect(lambda: self.lunchSettings(12))
+        
+        departmentIcon = QtGui.QIcon("img/icostore.png")
+        departmentMenu = QtGui.QAction(departmentIcon, 'Departments/Sub-Deparments', self)
+        departmentMenu.setStatusTip('set Departments and Sub-Departments')
+        departmentMenu.triggered.connect(lambda: self.lunchSettings(10))
+        
         settingMenu.addAction(accountMenu)
         settingMenu.addAction(affectMenu)
         settingMenu.addAction(assessMenu)
         settingMenu.addAction(classMenu)
+        settingMenu.addAction(departmentMenu)
         settingMenu.addAction(psycoMenu)
         settingMenu.addAction(expenseMenu)
         settingMenu.addAction(feeMenu)
         settingMenu.addAction(gradeMenu)
+        settingMenu.addAction(pensionMenu)
+        settingMenu.addAction(healthMenu)
         settingMenu.addAction(sessionMenu)
         settingMenu.addAction(storeMenu)
         settingMenu.addAction(subjectMenu)
@@ -399,7 +423,7 @@ class Window(QtGui.QMainWindow):
         
         
         self.toolbarMain = self.addToolBar('Main')
-        self.addToolBar(QtCore.Qt.LeftToolBarArea, self.toolbarMain )
+        self.addToolBar(QtCore.Qt.LeftToolBarArea, self.toolbarMain)
         self.toolbarMain.addAction(sessionAction)
         self.toolbarMain.addAction(studentAction)
         self.toolbarMain.addAction(staffAction)
@@ -424,16 +448,14 @@ class Window(QtGui.QMainWindow):
 
     def titleToolbar(self):
         session = self.activeTerm()
-        activeTerm = str(session[1])+' SESSION '+str(session[3])+' TERM'
+        activeTerm = str(session[1]).upper()+' SESSION '+str(session[3]).upper()+' TERM'
         self.majorSession = session[2];
         self.lbl = QtGui.QLabel(activeTerm)
         font = QtGui.QFont()
         font.setPointSize(15)
         font.setBold(True)
-        #font.setWeight(75)
         self.lbl.setFont(self.poiretone)
         self.lbl.setStyleSheet("QLabel {color: darkblue}")
-        #self.lbl.setFont(QtGui.QFont('Century Gothic', 17))
         self.toolbar1 = self.addToolBar('Title')
         self.toolbar1.setStyleSheet("background-color: white")
         self.toolbar1.addWidget(self.lbl)
@@ -549,27 +571,25 @@ class Window(QtGui.QMainWindow):
         _display = self.d_displayData.itemData(self.d_displayData.currentIndex())
         realClass = _clasz.split(',')
         
-        
         if(realClass[1] and realClass[1] == 'xx'):
-            studentsIDs = self.getClassStudents(_session , realClass[0], 0)
+            studentsIDs = self.getClassStudents(_session, realClass[0], 0)
         else:
             studentsIDs = self.getClassStudents(_session, realClass[0], 1)
-            
         
         student_id = []
-        for dx in studentsIDs :
-            student_id.append(dx[0]) 
-                
+        try:
+            for dx in studentsIDs :
+                student_id.append(dx['id']) 
+        except:
+            studentsIDs = {}
         
+               
         if(_display == 1):
             #bio information
             try:
                 self.tabl.close()
-                self.stackRightBar.setCurrentIndex(0)
-                self.stackLeftBar.setCurrentIndex(0)
-                self.checkBoxStack.setCurrentIndex(0)
                 self.tabl = self.myTable1(0, studentsIDs)
-                self.tabletitle.setText('Tiiii')
+                self.tabletitle.setText("STUDENTS' DATA")
                 self.hbox2.addWidget(self.tabl)
                 self.tabl.show()
             except:
@@ -580,9 +600,7 @@ class Window(QtGui.QMainWindow):
             #contact info
             try:
                 self.tabl.close()
-                self.stackRightBar.setCurrentIndex(0)
-                self.stackLeftBar.setCurrentIndex(0)
-                self.checkBoxStack.setCurrentIndex(1)
+                self.tabletitle.setText("STUDENTS' CONTACT") 
                 self.tabl = self.myTable2(0, studentsIDs)
                 self.hbox2.addWidget(self.tabl)
                 self.tabl.show()
@@ -673,34 +691,65 @@ class Window(QtGui.QMainWindow):
  
         
     def pageDisplay(self):
-        self.document.close()
-        post = PrintTable(self.tabl)
-        doc = post.makeTable()
-        self.document = QtGui.QTextEdit()
-        self.document.insertHtml(doc)
-        self.stackRightBar.setCurrentIndex(1)
-        self.hbox2x.addWidget(self.document)
-        self.document.show()
+        pass
+#        self.document.close()
+#        post = PrintTable(self.tabl)
+#        doc = post.makeTable()
+#        self.document = QtGui.QTextEdit()
+#        self.document.insertHtml(doc)
+#        self.stackRightBar.setCurrentIndex(1)
+#        self.hbox2x.addWidget(self.document)
+#        self.document.show()
         #return self.document
        
     def printReportPdf(self):
         report = self.report_table_holder
         lastRep = self.tableHeadersSelectorAction1()
-       
-        self.form = TableProfile(report[0], report[1], report[2], report[3], report[4], lastRep)
-        #self.form = AccountForm()
+        self.form = TableProfile(report[0], report[5], report[1], report[2], report[3], report[4], lastRep)
         self.form.show()
-        #rep.show()
+        
+    def printReportCsv(self):
+        report = self.report_table_holder
+        fileName = QtGui.QFileDialog.getSaveFileName(self, 'Save File as', '', '*.csv')
+        al = {}
+        hed = []
+        head = report[1]
+        data = report[2]
+        for k in data:
+            row = {}
+            for j in head:
+                row[head[j]] = data[k][j]
+            al[k] = row
+            
+        for j in head:
+           hed.append(head[j])
+        
+        dt = pd.DataFrame.from_dict(al,  orient='index', columns = hed)
+        dt.to_csv(fileName, index=False)
+        
+    def printReportExcel(self):
+        report = self.report_table_holder
+        fileName = QtGui.QFileDialog.getSaveFileName(self, 'Save File as', '', '*.xlsx')
+        al = {}
+        hed = []
+        head = report[1]
+        data = report[2]
+        for k in data:
+            row = {}
+            for j in head:
+                row[head[j]] = data[k][j]
+            al[k] = row
+            
+        for j in head:
+           hed.append(head[j])
+        
+        dt = pd.DataFrame.from_dict(al,  orient='index', columns = hed)
+        dt.to_excel(fileName, index=False)
     
     def printReportPreview(self):
         dialog = QtGui.QPrintPreviewDialog()
         dialog.setStyleSheet("table {border:1px; border-color:teal}")
-        dialog.setWindowTitle('Adedoyin Adetunji')
-        #dialog.showMaximized()
-        #dialog.setMaximumSize(True)
-        #dialog.setResolution(96)
-        #dialog.setPageSize(QtGui.QPrinter.Letter)
-        #dialog.setPageMargins(5, 5, 5, 10, QtGui.QPrinter.Millimeter)
+        dialog.setWindowTitle(self.title)
         dialog.paintRequested.connect(self.handlePaintRequest)
         dialog.exec_()
     
@@ -714,24 +763,15 @@ class Window(QtGui.QMainWindow):
         dialog.exec_()
         
     def lunchPrintPdf(self):
+        fileName = QtGui.QFileDialog.getSaveFileName(self, 'Save File as', '', '*.pdf')
         printer = QtGui.QPrinter()
-        pdffile =',,/test.pdf'
-        printer.setResolution(200)
+        printer.setResolution(100)
         printer.setPageSize(QtGui.QPrinter.Letter)
         printer.setOutputFormat(QtGui.QPrinter.PdfFormat)
-        printer.setOutputFileName(pdffile)
+        printer.setOutputFileName(fileName)
         printer.setPageMargins(5, 5, 5, 10, QtGui.QPrinter.Millimeter)
         document = self.document
-        #document.setPageSize(QtGui.QSizeF(printer.pageRect().size()))
         document.print_(printer)
-    
-    def lunchPrintCsv(self):
-        #document = self.document
-        pass
-    
-    def lunchPrintExcel(self):
-        #document = self.document
-        pass
         
     def lunchBack(self):
         self.stackLeftBar.setCurrentIndex(1)
@@ -742,11 +782,11 @@ class Window(QtGui.QMainWindow):
     def mainBody(self):
         #Widgets
         self.studentToolbar()
-        
         #Set button fonts
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
         sizePolicy.setHeightForWidth(True)
         bntstyle = "QPushButton{background-color: white; font-size: 12px; border:0px; padding:3px; margin:0px; font:Century Gothic;  text-align: left; color: darkblue}"
+        bntstyle1 = "QToolButton{ text-align: left; background-color: white; font-size: 12px; border:0px; padding:3px; margin:0px; font:Arial;  color: #022140}"
         picstyle = QtCore.QSize(30, 80)
         picstyle1 = QtCore.Qt.KeepAspectRatio
         font = QtGui.QFont()
@@ -754,6 +794,11 @@ class Window(QtGui.QMainWindow):
         font.setBold(True)
         font.setWeight(75)
         font.setFamily('Century Gothic')
+        font1 = QtGui.QFont()
+        font1.setPointSize(12)
+        font1.setBold(True)
+        font1.setWeight(75)
+        font1.setFamily('Century Gothic')
         
         self.tabl = self.myTable1(0, []) #hold all tables
         self.document = QtGui.QTextEdit() #hold all reports
@@ -769,13 +814,14 @@ class Window(QtGui.QMainWindow):
         #Keep table titles
         #text
         self.tabletitle = QtGui.QLabel()
+        self.tabletitle.setAlignment(QtCore.Qt.AlignCenter)
         self.tabletitle.setGeometry(QtCore.QRect(70, 80, 100, 100))
-        self.tabletitle.setText('None Selected')
+        self.tabletitle.setText('None Title')
         self.tabletitle.setFont(QtGui.QFont('SansSerif', 18))
-        self.tabletitle.setStyleSheet("background-color: white; color:teal")
+        self.tabletitle.setStyleSheet("background-color: teal; color:white; align:center")
         #keep button for refrsh
         #button
-        self.tablerefresh = QtGui.QPushButton()
+        self.tablerefresh = QtGui.QToolButton()
         self.tablerefresh.setFont(QtGui.QFont('SansSerif', 18))
         self.tablerefresh.setStyleSheet("background-color: white; color:white")
         refreshImg = 'img/selectall.png'
@@ -790,14 +836,33 @@ class Window(QtGui.QMainWindow):
         self.reportTitle.setStyleSheet("background-color: white; color:teal")
         #Keep report refresh button
         #button
-        self.reportRefresh = QtGui.QPushButton()
+        self.reportRefresh = QtGui.QToolButton()
         self.reportRefresh.setFont(QtGui.QFont('SansSerif', 18))
         self.reportRefresh.setStyleSheet("background-color: white; color:white")
         self.reportRefresh.setIcon(QtGui.QIcon(refreshImg))
         self.connect(self.reportRefresh, QtCore.SIGNAL("clicked()"), self.printReportPreview)
+        
+        pdfImg = 'icons/pdf.png'
+        self.reportPdfRefresh = QtGui.QToolButton()
+        self.reportPdfRefresh.setFont(QtGui.QFont('SansSerif', 18))
+        self.reportPdfRefresh.setStyleSheet("background-color: white; color:white")
+        self.reportPdfRefresh.setIcon(QtGui.QIcon(pdfImg))
+        self.connect(self.reportPdfRefresh, QtCore.SIGNAL("clicked()"), self.printReportPreview)
+        csvImg = 'icons/csv.png'
+        self.reportCsvRefresh = QtGui.QToolButton()
+        self.reportCsvRefresh.setFont(QtGui.QFont('SansSerif', 18))
+        self.reportCsvRefresh.setStyleSheet("background-color: white; color:white")
+        self.reportCsvRefresh.setIcon(QtGui.QIcon(csvImg))
+        self.connect(self.reportCsvRefresh, QtCore.SIGNAL("clicked()"), self.printReportCsv)
+        excelImg = 'icons/excel.png'
+        self.reportExRefresh = QtGui.QToolButton()
+        self.reportExRefresh.setFont(QtGui.QFont('SansSerif', 18))
+        self.reportExRefresh.setStyleSheet("background-color: white; color:white")
+        self.reportExRefresh.setIcon(QtGui.QIcon(excelImg))
+        self.connect(self.reportExRefresh, QtCore.SIGNAL("clicked()"), self.printReportExcel)
         #Keep report print
         #button
-        self.reportPrint = QtGui.QPushButton()
+        self.reportPrint = QtGui.QToolButton()
         self.reportPrint.setFont(QtGui.QFont('SansSerif', 18))
         self.reportPrint.setStyleSheet("background-color: white; color:white")
         printImg = 'img/printer.png'
@@ -806,10 +871,33 @@ class Window(QtGui.QMainWindow):
         #search table
         self.search_table = QtGui.QLineEdit()
         self.search_table.setTextMargins(5, 5, 3, 3)
-        #self.search_table.setContentsMargins(10, 10, 5, 5)
         self.search_table.setFixedWidth(220)
         self.search_table.textChanged.connect(self.pullSearchTable)
         self.search_table.setPlaceholderText('Search Table ..')
+        
+        printImg = 'icons/search.png'
+        self.search_from_text  = QtGui.QLabel('Select From ')
+        self.search_from_text.setFont(QtGui.QFont('SansSerif', 18))
+        self.search_to_text = QtGui.QLabel(' To ')
+        self.search_to_text.setFont(QtGui.QFont('SansSerif', 18))
+        self.search_from = QtGui.QDateEdit()
+        self.search_from.setStyleSheet('QDateEdit::drop-down{border-width:4px; spacing:5px}')
+        self.search_from.setMaximumHeight(50)
+        self.dateBtn = QtGui.QPushButton()
+        self.dateBtn.setFont(QtGui.QFont('SansSerif', 18))
+        self.dateBtn.setStyleSheet("background-color: white; color:white")
+        self.dateBtn.setIcon(QtGui.QIcon(printImg))
+        self.connect(self.dateBtn, QtCore.SIGNAL("clicked()"), lambda:self.getSessionDataExp())
+        self.dateBtn1 = QtGui.QPushButton()
+        self.dateBtn1.setFont(QtGui.QFont('SansSerif', 18))
+        self.dateBtn1.setStyleSheet("background-color: white; color:white")
+        self.dateBtn1.setIcon(QtGui.QIcon(printImg))
+        self.connect(self.dateBtn1, QtCore.SIGNAL("clicked()"), lambda:self.getSessionDataMin())
+        
+        self.search_to = QtGui.QDateEdit()
+        self.search_to.setMaximumHeight(50)
+        
+        
         #create the Right and left stack for srudents page
         self.stackRightBar = QtGui.QStackedWidget()
         self.stackLeftBar = QtGui.QStackedWidget()
@@ -823,26 +911,34 @@ class Window(QtGui.QMainWindow):
         
         self.rightPrintMenu.setFixedHeight(180) #for print menu
         scrollArea = QtGui.QScrollArea()
+        scrollArea.setContentsMargins(0,0,0,0)
         scrollArea.setWidgetResizable(True)
         scrollArea.setFixedHeight(300)
         self.rightListMenu = QtGui.QWidget(scrollArea)
         scrollArea.setWidget(self.rightListMenu)
         self.rightPrintListMenu = QtGui.QWidget() 
-        
-        
+         
         #Bind students widget to stacks
         self.stackRightBar.addWidget(self.leftReportTable)
         self.stackRightBar.addWidget(self.leftReportText)
-        #self.stackLeftBar.addWidget(self.rightPrimaryMenu)
-        #self.stackLeftBar.addWidget(self.rightPrintListMenu)
-        #self.stackLeftBar.addWidget(self.rightFeeMenu)
         
         self.hbox4 = QtGui.QHBoxLayout()
         self.hbox4.addWidget(self.tabletitle)
-        self.hbox4.addStretch()
-        self.hbox4.addWidget(self.search_table)
-        self.hbox4.addWidget(self.reportPrint)
-        self.hbox4.addWidget(self.tablerefresh)
+        
+        self.hbox4m = QtGui.QHBoxLayout()
+        self.hbox4m.addWidget(self.search_from_text)
+        self.hbox4m.addWidget(self.search_from)
+        self.hbox4m.addWidget(self.search_to_text)
+        self.hbox4m.addWidget(self.search_to)
+        self.hbox4m.addWidget(self.dateBtn1)
+        self.hbox4m.addWidget(self.dateBtn)
+        self.hbox4m.addStretch()
+        self.hbox4m.addWidget(self.search_table)
+        self.hbox4m.addWidget(self.reportPrint)
+        self.hbox4m.addWidget(self.reportPdfRefresh)
+        self.hbox4m.addWidget(self.reportCsvRefresh)
+        self.hbox4m.addWidget(self.reportExRefresh)
+        self.hbox4m.addWidget(self.tablerefresh)
         
         self.hbox4x = QtGui.QHBoxLayout()   
         self.hbox4x.addWidget(self.reportTitle)
@@ -853,6 +949,7 @@ class Window(QtGui.QMainWindow):
         self.hbox2 = QtGui.QVBoxLayout()
         self.hbox2.setSpacing(0)
         self.hbox2.setMargin(0)
+        self.hbox2.addLayout(self.hbox4m)
         self.hbox2.addLayout(self.hbox4)
         self.hbox2.addWidget(self.tabl)
         
@@ -872,6 +969,8 @@ class Window(QtGui.QMainWindow):
         self.hbox3x.addWidget(self.stackLeftBar)
         
         self.leftReportTable.setLayout(self.hbox2)
+        
+        
         self.leftReportText.setLayout(self.hbox2x)
            
         self.Frame1 = QtGui.QFrame()
@@ -882,83 +981,97 @@ class Window(QtGui.QMainWindow):
         self.b2_box = QtGui.QVBoxLayout()
         self.b3_box = QtGui.QVBoxLayout()
              
-        self.pbAdd = QtGui.QPushButton()
+        self.pbAdd = QtGui.QToolButton()
         self.pbAdd.setObjectName('Add')
         self.pbAdd.setText('Add New Student')
-        self.pbAdd.setFont(font)
-        self.pbAdd.setStyleSheet(bntstyle)
+        self.pbAdd.setFont(font1)
+        self.pbAdd.setStyleSheet(bntstyle1)
+        self.pbAdd.setLayoutDirection(QtCore.Qt.LeftToRight)
         self.pbAdd.setSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Expanding)
         
-        self.pbProfile = QtGui.QPushButton()
+        self.pbProfile = QtGui.QToolButton()
+        self.pbProfile.setFont(font1)
         self.pbProfile.setObjectName('Profile')
         self.pbProfile.setText("Student Profile")
-        self.pbProfile.setStyleSheet(bntstyle)
+        self.pbProfile.setStyleSheet(bntstyle1)
+        self.pbProfile.setLayoutDirection(QtCore.Qt.RightToLeft)
         self.pbProfile.setSizePolicy(QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Expanding)
         
-        self.pbEdit = QtGui.QPushButton()
+        self.pbEdit = QtGui.QToolButton()
+        self.pbEdit.setFont(font1)
         self.pbEdit.setObjectName('Edit')
         self.pbEdit.setText("Edit student data")
-        self.pbEdit.setStyleSheet(bntstyle)
+        self.pbEdit.setStyleSheet(bntstyle1)
         self.pbEdit.setSizePolicy(QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Expanding)
         
-        self.pbMove = QtGui.QPushButton()
+        self.pbMove = QtGui.QToolButton()
+        self.pbMove.setFont(font1)
         self.pbMove.setObjectName('Change')
         self.pbMove.setText("Student Class")
-        self.pbMove.setStyleSheet(bntstyle)
+        self.pbMove.setStyleSheet(bntstyle1)
         self.pbMove.setSizePolicy(QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Expanding)
         
-        self.pbSubject = QtGui.QPushButton()
+        self.pbSubject = QtGui.QToolButton()
+        self.pbSubject.setFont(font1)
         self.pbSubject.setObjectName('Subject')
         self.pbSubject.setText("Student Subject")
-        self.pbSubject.setStyleSheet(bntstyle)
+        self.pbSubject.setStyleSheet(bntstyle1)
         self.pbSubject.setSizePolicy(QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Expanding)
         
-        self.pbRemove = QtGui.QPushButton()
+        self.pbRemove = QtGui.QToolButton()
+        self.pbRemove.setFont(font1)
         self.pbRemove.setObjectName('Remove ')
         self.pbRemove.setText("Remove Student(s) from Class")
-        self.pbRemove.setStyleSheet(bntstyle)
+        self.pbRemove.setStyleSheet(bntstyle1)
         self.pbRemove.setSizePolicy(QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Expanding)
         
-        self.pbPay = QtGui.QPushButton()
+        self.pbPay = QtGui.QToolButton()
+        self.pbPay.setFont(font1)
         self.pbPay.setObjectName('Payfees')
         self.pbPay.setText("Pay Fees")
-        self.pbPay.setStyleSheet(bntstyle)
+        self.pbPay.setStyleSheet(bntstyle1)
         self.pbPay.setSizePolicy(QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Expanding)
         
-        self.pbEmail = QtGui.QPushButton()
+        self.pbEmail = QtGui.QToolButton()
+        self.pbEmail.setFont(font1)
         self.pbEmail.setObjectName('email ')
         self.pbEmail.setText("Send Email")
-        self.pbEmail.setStyleSheet(bntstyle)
+        self.pbEmail.setStyleSheet(bntstyle1)
         self.pbEmail.setSizePolicy(QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Expanding)
         
-        self.pbAcademic = QtGui.QPushButton()
+        self.pbAcademic = QtGui.QToolButton()
+        self.pbAcademic.setFont(font1)
         self.pbAcademic.setObjectName('academic ')
         self.pbAcademic.setText("Academic Report")
-        self.pbAcademic.setStyleSheet(bntstyle)
+        self.pbAcademic.setStyleSheet(bntstyle1)
         self.pbAcademic.setSizePolicy(QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Expanding)
         
-        self.pbAffective = QtGui.QPushButton()
+        self.pbAffective = QtGui.QToolButton()
+        self.pbAffective.setFont(font1)
         self.pbAffective.setObjectName('affective')
         self.pbAffective.setText("Affective Report")
-        self.pbAffective.setStyleSheet(bntstyle)
+        self.pbAffective.setStyleSheet(bntstyle1)
         self.pbAffective.setSizePolicy(QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Expanding)
         
-        self.pbPsyco = QtGui.QPushButton()
+        self.pbPsyco = QtGui.QToolButton()
+        self.pbPsyco.setFont(font1)
         self.pbPsyco.setObjectName('psyco')
         self.pbPsyco.setText("Psychomoto Report")
-        self.pbPsyco.setStyleSheet(bntstyle)
+        self.pbPsyco.setStyleSheet(bntstyle1)
         self.pbPsyco.setSizePolicy(QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Expanding)
         
-        self.pbPhoto = QtGui.QPushButton()
+        self.pbPhoto = QtGui.QToolButton()
+        self.pbPhoto.setFont(font1)
         self.pbPhoto.setObjectName('Photo')
         self.pbPhoto.setText("Photo gallery")
-        self.pbPhoto.setStyleSheet(bntstyle)
+        self.pbPhoto.setStyleSheet(bntstyle1)
         self.pbPhoto.setSizePolicy(QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Expanding)
         
-        self.pbPrint = QtGui.QPushButton()
+        self.pbPrint = QtGui.QToolButton()
+        self.pbPrint.setFont(font1)
         self.pbPrint.setObjectName('print')
         self.pbPrint.setText("Print Table")
-        self.pbPrint.setStyleSheet(bntstyle)
+        self.pbPrint.setStyleSheet(bntstyle1)
         self.pbPrint.setSizePolicy(QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Expanding)
         
         #Print Menu Items
@@ -1027,8 +1140,8 @@ class Window(QtGui.QMainWindow):
         self.connect(self.pbPrint, QtCore.SIGNAL("clicked()"), self.lunchBack)
         self.connect(self.pbPrintPrev, QtCore.SIGNAL("clicked()"), self.printReportPdf)
         self.connect(self.pbPrintPdf, QtCore.SIGNAL("clicked()"), self.lunchPrintPreview)
-        self.connect(self.pbPrintCsv, QtCore.SIGNAL("clicked()"), self.lunchPrintCsv)
-        self.connect(self.pbPrintExcel, QtCore.SIGNAL("clicked()"), self.lunchPrintExcel)
+        self.connect(self.pbPrintCsv, QtCore.SIGNAL("clicked()"), self.printReportCsv)
+        self.connect(self.pbPrintExcel, QtCore.SIGNAL("clicked()"), self.printReportExcel)
         self.connect(self.pbPay, QtCore.SIGNAL("clicked()"), self.lunchPayDialog)
         self.connect(self.pbEmail, QtCore.SIGNAL("clicked()"), self.lunchStudentAddForm)
         self.connect(self.pbAcademic, QtCore.SIGNAL("clicked()"), self.academicDataPlus)
@@ -1133,14 +1246,7 @@ class Window(QtGui.QMainWindow):
         self.f_box.addWidget(self.pbAffective, 9, 1)
         self.f_box.addWidget(self.picPsyco, 10, 0)
         self.f_box.addWidget(self.pbPsyco, 10, 1)
-        #self.f_box.addWidget(self.picPrevPrint, 11, 0)
-        #self.f_box.addWidget(self.pbPrintPrev, 11, 1)
-        #self.f_box.addWidget(self.picPrint, 12, 0)
-        #self.f_box.addWidget(self.pbPrint, 12, 1)
         
-        #Left print menu
-        #self.f_box1.addWidget(self.picBack, 0, 0)
-        #self.f_box1.addWidget(self.pbBack, 0, 1)
         
         #Left print menu
         self.f_box2.addWidget(self.picFeeSet, 0, 0)
@@ -1149,9 +1255,7 @@ class Window(QtGui.QMainWindow):
         self.f_box2.addWidget(self.pbExpenseSet, 1, 1)
         self.f_box2.addWidget(self.picStoreSet, 2, 0)
         self.f_box2.addWidget(self.pbStoreSet, 2, 1)
-        #self.f_box2.addWidget(self.picBack1, 3, 0)
-        #self.f_box2.addWidget(self.pbBack1, 3, 1)
-        
+             
         self.b_box = QtGui.QHBoxLayout()
         self.b_box.addLayout(self.b1_box)
         self.b_box.addLayout(self.b2_box)
@@ -1162,7 +1266,7 @@ class Window(QtGui.QMainWindow):
         self.search_box.setTextMargins(5, 5, 5, 5)
         self.search_box.setContentsMargins(10, 10, 5, 5)
         self.search_box.textChanged.connect(self.pullSearch)
-        self.search_box.setPlaceholderText('Search Student ..')
+        self.search_box.setPlaceholderText('Search for Student ..')
         frm_search.addWidget(self.search_box)
         
         #Table titles
@@ -1176,7 +1280,6 @@ class Window(QtGui.QMainWindow):
         self.classUnitFeeTable  = ['id','Class', 'Unit', 'Male', 'Female', 'Population', 'Fee', 'Amount', 'Total Amount', 'Total Paid', 'Balance' ]
         self.classFeeTable  = ['id','Class','Students', 'Fees', 'Paid', 'Balance' ]
         
-         
         self.hc1_box = QtGui.QVBoxLayout()
         self.f_boxx = QtGui.QVBoxLayout()
         self.f_boxx.addLayout(self.hc1_box)
@@ -1187,7 +1290,7 @@ class Window(QtGui.QMainWindow):
         self.rightListMenu.setLayout(self.f_boxx)
         
         sub_box = QtGui.QVBoxLayout()
-        sub_box.addWidget(self.rightPrintMenu)
+        sub_box.setContentsMargins(0, 0, 0, 0)
         sub_box.addWidget(scrollArea)
         
         self.rightPrimaryMenu.setLayout(self.f_box)
@@ -1199,26 +1302,27 @@ class Window(QtGui.QMainWindow):
         self.rightFeeMenu.setSizePolicy(QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Minimum )
         
         self.Frame2 = QtGui.QVBoxLayout()
-        #self.Frame2.addLayout(frm_search)
         search_Widget = QtGui.QWidget()
         search_Widget.setContentsMargins(0, 0, 0, 0)
         search_Widget.setLayout(frm_search)
         
         self.t_box = QtGui.QToolBox()
-        self.t_box.setMinimumHeight(600)
+        self.t_box.setStyleSheet("QToolBox::tab{background-color:#022140; color:white; font-size:15px; font-weight:75; font-family:sarala}")
         self.t_box.setContentsMargins(0, 0, 0, 0)
         self.t_box.addItem(self.rightPrimaryMenu, 'Student')
-        self.t_box.addItem(self.rightPrintListMenu, 'Format Table')
+        self.t_box.addItem(self.rightPrintListMenu, 'Column Visibility')
         self.t_box.addItem(self.rightFeeMenu, 'Fees')
         
+        
         self.Frame2.addWidget(search_Widget)
+        self.Frame2.setContentsMargins(0, 0, 0, 0)
         self.Frame2.addWidget(self.t_box)
         self.Frame2.addLayout(self.hbox3x)
         self.Frame2.addLayout(self.b_box)
         
         v_widget = QtGui.QWidget()
         v_widget.setFixedWidth(220)
-        v_widget.setStyleSheet("background-color: white")
+        v_widget.setStyleSheet('background-image: linear-gradient(180deg, grey, red)')
         v_widget.setContentsMargins(0, 0, 0, 0)
         v_widget.setFont(font)
         v_widget.setLayout(self.Frame2)
@@ -1242,17 +1346,13 @@ class Window(QtGui.QMainWindow):
         
         #full bar
         tree_id = 0
-        tree1 = QtGui.QTreeWidget()
-        tree1.setHeaderLabel("Quick Menu")
-        tree1.setContentsMargins(0, 0, 0, 0)
-        tree1.setMinimumHeight(600)
-        parent1 = QtGui.QTreeWidgetItem(tree1)
-        parent1.setText(0, "Classes")
+        self.tree1 = QtGui.QTreeWidget()
+        self.tree1.setHeaderLabel("Quick Menu")
+        self.tree1.setContentsMargins(0, 0, 0, 0)
+        self.tree1.setMinimumHeight(600)
+        parent1 = QtGui.QTreeWidgetItem(self.tree1)
+        parent1.setText(0, "Students")
         parent1.setFlags(parent1.flags() | QtCore.Qt.ItemIsTristate | QtCore.Qt.ItemIsUserCheckable)
-        self.hold_tree = {}
-        self.post_tree = {}
-        self.hold_tree[tree_id] = parent1
-        self.post_tree[tree_id] = 'c-x'
         tree_id += 1
         itz = self.pullClass(1)
         for k in itz:
@@ -1260,36 +1360,84 @@ class Window(QtGui.QMainWindow):
            child = QtGui.QTreeWidgetItem(parent1)
            child.setFlags(child.flags() | QtCore.Qt.ItemIsTristate | QtCore.Qt.ItemIsUserCheckable) 
            child.setText(0, str(act).upper())
-           self.hold_tree[tree_id] = child
-           self.post_tree[tree_id] = 'cl-'+str(k)
-           tree_id += 1
-           #child.setCheckState(0, QtCore.Qt.Checked)
+           child.setData(1, QtCore.Qt.EditRole, 'st-'+str(k))
            arr = self.pullClass(k)
            for j in arr:
                act1 = str(arr[j])
                child1 = QtGui.QTreeWidgetItem(child)
-               child1.setFlags(child1.flags()) 
+               child1.setFlags(child1.flags())
                child1.setText(0, str(act1).upper())
-               self.hold_tree[tree_id] = child1
-               self.post_tree[tree_id] = 'cls-'+str(j)
+               child1.setData(1, QtCore.Qt.EditRole, 'std-'+str(j))
+               tree_id += 1
+        
+        parent12 = QtGui.QTreeWidgetItem(self.tree1)
+        parent12.setText(0, "Students")
+        parent12.setFlags(parent12.flags() | QtCore.Qt.ItemIsTristate | QtCore.Qt.ItemIsUserCheckable)
+        tree_id += 1
+        itz = self.pullClass(1)
+        for k in itz:
+           act = str(itz[k])
+           child = QtGui.QTreeWidgetItem(parent12)
+           child.setFlags(child.flags() | QtCore.Qt.ItemIsTristate | QtCore.Qt.ItemIsUserCheckable) 
+           child.setText(0, str(act).upper())
+           child.setData(1, QtCore.Qt.EditRole, 'cl-'+str(k))
+           arr = self.pullClass(k)
+           for j in arr:
+               act1 = str(arr[j])
+               child1 = QtGui.QTreeWidgetItem(child)
+               child1.setFlags(child1.flags())
+               child1.setText(0, str(act1).upper())
+               child1.setData(1, QtCore.Qt.EditRole, 'cls-'+str(j))
                tree_id += 1
                
-               
-        parent2 = QtGui.QTreeWidgetItem(tree1)
+        parent2 = QtGui.QTreeWidgetItem(self.tree1)
         parent2.setText(0, "Staff")
         parent2.setFlags(parent2.flags() | QtCore.Qt.ItemIsTristate | QtCore.Qt.ItemIsUserCheckable)
-        self.hold_tree[tree_id] = parent2
-        self.post_tree[tree_id] = 'st-x'
-        tree_id += 1
         
-        parent3 = QtGui.QTreeWidgetItem(tree1)
+        child2 = QtGui.QTreeWidgetItem(parent2)
+        child2.setFlags(child2.flags() | QtCore.Qt.ItemIsTristate | QtCore.Qt.ItemIsUserCheckable) 
+        child2.setText(0, 'Employment Status')
+        
+        child21 = QtGui.QTreeWidgetItem(child2)
+        child21.setFlags(child21.flags() | QtCore.Qt.ItemIsTristate | QtCore.Qt.ItemIsUserCheckable) 
+        child21.setText(0, 'In-Service')
+        child21.setData(1, QtCore.Qt.EditRole, 'ser-1')
+        child22 = QtGui.QTreeWidgetItem(child2)
+        child22.setFlags(child22.flags() | QtCore.Qt.ItemIsTristate | QtCore.Qt.ItemIsUserCheckable) 
+        child22.setText(0, 'Out-Service')
+        child22.setData(1, QtCore.Qt.EditRole, 'ser-2')
+        
+        child3 = QtGui.QTreeWidgetItem(parent2)
+        child3.setFlags(child3.flags() | QtCore.Qt.ItemIsTristate | QtCore.Qt.ItemIsUserCheckable) 
+        child3.setText(0, 'Department')
+        arr = Valid().pullData('datas', '', {'pubID': 27})
+        for j in arr:
+           act1 = str(j['name'])
+           child31 = QtGui.QTreeWidgetItem(child3)
+           child31.setFlags(child31.flags())
+           child31.setText(0, str(act1).upper())
+           child31.setData(1, QtCore.Qt.EditRole, 'dep-'+str(j['id']))
+        child31 = QtGui.QTreeWidgetItem(child3)
+        child31.setFlags(child31.flags())
+        child31.setText(0, 'No Department')
+        child31.setData(1, QtCore.Qt.EditRole, 'dep-0')     
+        
+        parent3 = QtGui.QTreeWidgetItem(self.tree1)
         parent3.setText(0, "Expenses")
+        parent3.setData(1, QtCore.Qt.EditRole, 'exp-0')
         parent3.setFlags(parent1.flags() | QtCore.Qt.ItemIsTristate | QtCore.Qt.ItemIsUserCheckable)
-        self.hold_tree[tree_id] = parent3
-        self.post_tree[tree_id] = 'ex-x'
-        tree_id += 1
-        tree1.itemClicked.connect(lambda state: self.getTree())
         
+        parent4 = QtGui.QTreeWidgetItem(self.tree1)
+        parent4.setText(0, "Stock")
+        parent4.setData(1, QtCore.Qt.EditRole, 'sto-0')
+        parent4.setFlags(parent1.flags() | QtCore.Qt.ItemIsTristate | QtCore.Qt.ItemIsUserCheckable)
+        
+        parent5 = QtGui.QTreeWidgetItem(self.tree1)
+        parent5.setText(0, "Library")
+        parent5.setData(1, QtCore.Qt.EditRole, 'lib-0')
+        parent5.setFlags(parent1.flags() | QtCore.Qt.ItemIsTristate | QtCore.Qt.ItemIsUserCheckable)
+        
+        self.tree1.itemSelectionChanged.connect(self.getTreex)
         
         s_v_widget1 = QtGui.QWidget()
         s_v_widget1.setFixedWidth(200)
@@ -1298,6 +1446,9 @@ class Window(QtGui.QMainWindow):
         s_v_widget1.setFont(font)
         #s_v_widget1.setLayout(self.s_frame1)
         
+        self.textStyle = "background-color: white; color:black; border: 3px ridge #ccc"
+        self.minW = 780
+        self.maxW = 600
         s_v_widget2 = QtGui.QWidget()
         s_v_widget2.setStyleSheet("background-color: grey")
         s_v_widget2.setContentsMargins(0, 0, 0, 0)
@@ -1305,22 +1456,35 @@ class Window(QtGui.QMainWindow):
         s_v_widget2.setSizePolicy(QtGui.QSizePolicy.Fixed, QtGui.QSizePolicy.Fixed )
         s_v_widget2_hbox = QtGui.QVBoxLayout()
         s_v_widget2_hbox.setContentsMargins(2, 8, 0, 0)
+        s_v_widget21_hbox = QtGui.QHBoxLayout()
+        s_v_widget21_hbox.setContentsMargins(2, 8, 0, 0)
         s_v_widget2_hbox_title = QtGui.QLabel("<span style='color:white; padding-top:10px'><b>Administrative Management Tools</b></span>")
         s_v_widget2_hbox_title.setFixedHeight(20)
-        s_v_widget2_hbox_body = QtGui.QFrame()
-        s_v_widget2_hbox_body.setFrameShape(QtGui.QFrame.StyledPanel)
-        s_v_widget2_hbox_body.setFrameShadow(QtGui.QFrame.Sunken)
-        s_v_widget2_hbox_body.setStyleSheet("background-color: dimgray")
-        s_v_widget2_hbox.addWidget(s_v_widget2_hbox_title)
-        s_v_widget2_hbox.addWidget(s_v_widget2_hbox_body)
+        self.s_v_widget2_menu = QtGui.QMenuBar()
+        self.s_v_widget2_menu.setStyleSheet("color: #ccc")
+        s_v_widget21_hbox.addWidget(s_v_widget2_hbox_title)
+        s_v_widget21_hbox.addStretch()
+        s_v_widget21_hbox.addWidget(self.s_v_widget2_menu)
+        self.s_v_widget2_hbox_body = QtGui.QFrame()
+        self.s_v_widget2_hbox_body.setFrameShape(QtGui.QFrame.StyledPanel)
+        self.s_v_widget2_hbox_body.setFrameShadow(QtGui.QFrame.Sunken)
+        self.s_v_widget2_hbox_body.setStyleSheet("background-color: dimgray")
+        s_v_widget2_hbox.addLayout(s_v_widget21_hbox)
+        s_v_widget2_hbox.addWidget(self.s_v_widget2_hbox_body)
         s_v_widget2.setLayout(s_v_widget2_hbox)
+        self.s_v_widget2_hbox_body_layout = QtGui.QHBoxLayout()
+        self.profile_title = '--'
+        self.active_person = 200
+        self.pullProfile(self.active_person, 1, {})
+        self.s_v_widget2_hbox_body.setLayout(self.s_v_widget2_hbox_body_layout)
+        self.s_v_widget2_hbox_body_layout.addWidget(self.bioText)
+        
         
         s_v_widget3 = QtGui.QWidget()
         s_v_widget3.setFixedWidth(300)
         s_v_widget3.setStyleSheet("background-color: #101010")
         s_v_widget3.setContentsMargins(0, 0, 0, 0)
         s_v_widget3.setFont(font)
-       # s_v_widget3.setLayout(self.s_frame3)
         
         self.s_frame1 = QtGui.QFrame(s_v_widget1)
         self.s_frame1.setFrameShape(QtGui.QFrame.StyledPanel)
@@ -1329,45 +1493,20 @@ class Window(QtGui.QMainWindow):
         
         s_hh_b = QtGui.QHBoxLayout()
         s_hh_b.setContentsMargins(0, 0, 0, 0)
-        s_hh_b.addWidget(tree1)
+        s_hh_b.addWidget(self.tree1)
         self.s_frame1.setLayout(s_hh_b)
-        #s_f_header = QtGui.QHeaderView(QtCore.Qt.Horizontal, self.s_frame1)
-    
-        
-        #s_w = QtGui.QWidget()
-        nImg = QtGui.QImage('img/add.png')
         
         self.scrollArea1 = QtGui.QScrollArea()
         self.scrollArea1.setWidgetResizable(True)
-        self.scrollArea1.setMinimumHeight(100)
-        self.scrollArea1.setFixedSize(300, 620)
+        self.scrollArea1.setFixedSize(280, 600)
         self.scrollArea1.setContentsMargins(0, 0, 0, 0)
-   
         
         self.scrollContent = QtGui.QWidget()
-        self.s_grid = QtGui.QGridLayout()
+        #self.scrollContent.setMinimumHeight(400)
+        self.s_grid = QtGui.QVBoxLayout()
+        self.hold_a_gridw = []
+        self.hold_a_gridl = []
         self.scrollContent.setLayout(self.s_grid)
-        #self.s_grid.setStyleSheet("backgound-color: green; ")
-        self.s_grid_header = QtGui.QLabel("JSS 3")
-        #s_grid.addWidget(s_grid_header, 0, 0, 2)
-        for i in range(0):
-            p = QtGui.QPainter()
-            p.setPen(QtCore.Qt.white)
-            p.drawText(nImg.rect(), QtCore.Qt.AlignCenter, "Adedoyin Charles Adetunji")
-            p.setFont(QtGui.QFont("Arial", 12))
-            lb1 = QtGui.QLabel()
-            lb1.setPixmap(QtGui.QPixmap.fromImage(nImg.scaled(30, 30, QtCore.Qt.IgnoreAspectRatio)))
-            lb1.setAlignment(QtCore.Qt.AlignLeft)
-            lb1.setMaximumHeight(30)
-            lb1.setMaximumWidth(31)
-            lb2 = QtGui.QLabel("<html><span color='white'>Adedoyin Charles  </span><br><span style='color:#4C4D4F'> Male</span></html>")
-            lb2.setFont(QtGui.QFont("Tahoma", 9))
-            lb2.setStyleSheet("color: white; border-bottom:1px inset #4C4D4F")
-            lb2.setFixedWidth(270)
-            lb2.setFixedHeight(30)
-            self.s_grid.addWidget(lb1, i+1, 0)
-            self.s_grid.addWidget(lb2, i+1, 1)
-        #s_grid.addWidget(p, 0, 1)
         self.scrollContent.setSizePolicy(QtGui.QSizePolicy.Fixed, QtGui.QSizePolicy.Fixed )
         self.scrollArea1.setWidget(self.scrollContent)
         
@@ -1394,61 +1533,141 @@ class Window(QtGui.QMainWindow):
         #self.staffStack.setStyleSheet("background-color: white")
         self.staffStack.setLayout(staff_main_box)
    
-    def getTree(self):
-        trees = self.hold_tree
-        post = self.post_tree
+    def getTreex(self):
+        g = Db()
+        getSelected = self.tree1.selectedItems()
         
-        for a in trees:
-            if trees[a].isSelected():
-                val = post[a]
+        if getSelected:
+            baseNode = getSelected[0]
+            getChildeNode = baseNode.text(1)
             
-        v = val.split('-')
-        v_name = v[0] #tag name
-        v_id = v[1] #tag code
+            v = getChildeNode.split('-')
+            v_name = v[0] #tag name
+            v_id = int(v[1]) #tag code
+            
+            
+            if str(v_name) == 'st':
+                '''
+                select all students from this class
+                '''
+                cn = StudentTable(self.mainTermSession, [None],[v_id], [None])
+                raw_students = cn.classStudent()
+                cl = self.getDataById(v_id)
+                title = str(cl['name']).upper()+" Class"
+                self.getTreeStudents(raw_students, title)
+                
+            if str(v_name) == 'std':
+                '''
+                select all students from this class unit
+                '''
+                cn = StudentTable(self.mainTermSession, [None], [None], [v_id])
+                raw_students = cn.classUnitStudent()
+                cl = self.getDataById(v_id)
+                cl1 =self.getDataById(cl['subID'])
+                title = str(cl1['name']).upper()+str(cl['abbrv']).upper()+" Class"
+                self.getTreeStudents(raw_students, title)
+                
+            if str(v_name) == 'cl':
+                '''
+                select all students from this class
+                '''
+                cl = self.getDataById(v_id)
+                title = str(cl['name']).upper()+" Class"
+                self.getTreeClass(int(v_id), 0, title)
+                
+            if str(v_name) == 'cls':
+                '''
+                select all students from this class unit
+                '''
+               
+                cl = self.getDataById(v_id)
+                cl1 =self.getDataById(cl['subID'])
+                title = str(cl1['name']).upper()+str(cl['abbrv']).upper()+" Class"
+                self.getTreeClass(int(v_id), 1, title)
+                
+            if str(v_name) == 'ser':
+                if int(v_id) == 1:
+                    raw_students = g.selectn('staffs', '', '', {'reason':0})
+                    title = str('Staff in-service').upper()
+                    self.getTreeStaff(raw_students, title)
+                    
+                if v_id == 2:
+                    raw_students = g.selectn('staffs', '', '', {'reason':0})
+                    title = str('Staff Out-of-Service').upper()
+                    self.getTreeStaff(raw_students, title)
+                    
+            if str(v_name) == 'dep':
+                if v_id > 0:
+                    raw_students = g.selectn('staffs', '', '', {'department':v_id, 'reason':0})
+                    d_name = g.selectn('datas','',1,{'id':v_id})
+                    title = str(d_name['name']).upper()
+                    self.getTreeStaff(raw_students, title)
+                elif v_id == 0:
+                   raw_students = g.selectn('staffs', '', '', {})
+                   title = str('No Department').upper()
+                   self.getTreeStaff(raw_students, title) 
+            
+            if str(v_name) == 'exp':
+                raw = g.selectn('datas', '', '', {'pubID':15})
+                title = str('Expenses').upper()
+                self.getTreeData(raw, title)
+     
+            if str(v_name) == 'acc':
+                raw = g.selectn('datas', '', '', {'pubID':20})
+                title = str('Accounts').upper()
+                self.getTreeData(raw, title)
+                
+            if str(v_name) == 'sto':
+                raw = g.selectn('datas', '', '', {'pubID':23})
+                title = str('Expenses').upper()
+                self.getTreeData(raw, title)
+                
+            if str(v_name) == 'lib':
+                raw = g.selectn('datas', '', '', {'pubID':23})
+                title = str('Library').upper()
+                self.getTreeData(raw, title)
+                
+                
         
-        
-        if str(v_name) == 'cl':
-            '''
-            select all students from this class
-            '''
-            cn = StudentTable(self.mainTermSession, [None],[v_id], [None])
-            raw_students = cn.classStudent()
-            cl = self.getDataById(v_id)
-            title = str(cl['name']).upper()+" Class"
-            self.getTreeStudents(raw_students, title)
-            
-        if str(v_name) == 'cls':
-            '''
-            select all students from this class unit
-            '''
-            cn = StudentTable(self.mainTermSession, [None], [None], [v_id])
-            raw_students = cn.classUnitStudent()
-            cl = self.getDataById(v_id)
-            cl1 =self.getDataById(cl['subID'])
-            title = str(cl1['name']).upper()+str(cl['abbrv']).upper()+" Class"
-            self.getTreeStudents(raw_students, title)
-            
             
     def getTreeStudents(self, persons, title):
         '''
         put all persons in coloumn (dark column)
         photo, name, sex
         '''
-        for i in reversed(range(self.s_grid.count())):
-            self.s_grid.takeAt(i).widget().deleteLater()
-            
+        self.profile_title = title
+        for i in self.hold_a_gridw:
+           sip.delete(i)
+         
+        for i in self.hold_a_gridl:
+           sip.delete(i)
+           
+         
+        self.hold_a_gridw = []
+        self.hold_a_gridl = []
         s_grid_header = QtGui.QLabel("<h2 style='color:white'>"+ title +"</h2>")
-        self.s_grid.addWidget(s_grid_header, 0, 0, 1, 2)
+        w_wid = QtGui.QHBoxLayout()
+        w_wid.addWidget(s_grid_header)
+        self.s_grid.addLayout(w_wid)
+        self.hold_a_gridw.append(s_grid_header)
+        self.hold_a_gridw.append(w_wid)
         k = 1
         for i in persons:
-            fullname = str(i[1])+" "+ str(i[2])+" "+ str(i[3])+" "+str(i[4])
-            if i[6] == 0:
+            fullname = str(i['schno'])+" "+ str(i['surname'])+" "+ str(i['firstname'])+" "+str(i['othername'])
+            if i['gender'] == 0:
                 sex = 'Male'
             else:
                 sex = 'Female'
-            nImg ='img/add.png'
+            
+            if os.path.isfile('pic_thumb/'+str(i['pix1'])):
+                image1 = Image.open('pic_thumb/'+str(i['pix1']))
+            else:
+                image1 = Image.open('img/stdpic.png')
+            imageQ1 = ImageQt(image1)
+            imagep1 =  QtGui.QPixmap( QtGui.QPixmap.fromImage( QtGui.QImage(imageQ1).scaled(100, 100, QtCore.Qt.IgnoreAspectRatio)))
             lb1 = QtGui.QPushButton()
-            lb1.setIcon(QtGui.QIcon(nImg))
+            self.connect(lb1, QtCore.SIGNAL("clicked()"), lambda x = i['id']: self.pullProfile(x, 1))
+            lb1.setIcon(QtGui.QIcon(imagep1))
             lb1.setMaximumHeight(30)
             lb1.setMaximumWidth(31)
             lb1.setContentsMargins(0 ,0, 0, 0)
@@ -1456,15 +1675,446 @@ class Window(QtGui.QMainWindow):
             lb2 = QtGui.QLabel("<html><span color='white'>"+ fullname.title() +"  </span><br><span style='color:#4C4D4F'>"+ sex +"</span></html>")
             lb2.setFont(QtGui.QFont("Tahoma", 9))
             lb2.setStyleSheet("color: white; border-bottom:1px inset #4C4D4F")
-            lb2.setFixedWidth(270)
+            lb2.setFixedWidth(350)
             lb2.setFixedHeight(30)
-            self.s_grid.addWidget(lb1, k, 0)
-            self.s_grid.addWidget(lb2, k, 1)
+            w_wid = QtGui.QHBoxLayout()
+            w_wid.addWidget(lb1)
+            w_wid.addWidget(lb2)
+            self.hold_a_gridw.append(lb1)
+            self.hold_a_gridw.append(lb2)
+            self.hold_a_gridl.append(w_wid)
+            self.s_grid.addLayout(w_wid)
             k += 1
-        #s_grid.addWidget(p, 0, 1)
+        self.s_grid.addStretch()
         #self.s_frame3.setLayout(self.s_grid)
-        #self.s_frame3.show()
+        #self.scrollContent.show()
+    
+    def getTreeStaff(self, persons, title):
+        '''
+        put all persons in coloumn (dark column)
+        photo, name, sex
+        '''
+        self.profile_title = title
+        for i in self.hold_a_gridw:
+           sip.delete(i)
+         
+        for i in self.hold_a_gridl:
+           sip.delete(i)
+           
+         
+        self.hold_a_gridw = []
+        self.hold_a_gridl = []
+        s_grid_header = QtGui.QLabel("<h2 style='color:white'>"+ title +"</h2>")
+        w_wid = QtGui.QHBoxLayout()
+        w_wid.addWidget(s_grid_header)
+        self.s_grid.addLayout(w_wid)
+        self.hold_a_gridw.append(s_grid_header)
+        self.hold_a_gridw.append(w_wid)
+        k = 1
+        for i in persons:
+            fullname = str(i['empno'])+" "+ str(i['title'])+" "+ str(i['surname'])+" "+ str(i['firstname'])+" "+str(i['othername'])
+            if i['gender'] == 0:
+                sex = 'Male'
+            else:
+                sex = 'Female'
+            
+            if os.path.isfile('pic_thumb/'+str(i['pix'])):
+                image1 = Image.open('pic_thumb/'+str(i['pix']))
+            else:
+                image1 = Image.open('img/stdpic.png')
+            imageQ1 = ImageQt(image1)
+            imagep1 =  QtGui.QPixmap( QtGui.QPixmap.fromImage( QtGui.QImage(imageQ1).scaled(100, 100, QtCore.Qt.IgnoreAspectRatio)))
+            lb1 = QtGui.QPushButton()
+            self.connect(lb1, QtCore.SIGNAL("clicked()"), lambda x = i['id']: self.pullProfile(x, 2))
+            lb1.setIcon(QtGui.QIcon(imagep1))
+            lb1.setMaximumHeight(30)
+            lb1.setMaximumWidth(31)
+            lb1.setContentsMargins(0 ,0, 0, 0)
+            lb1.setStyleSheet("border:none; padding:0px;marging:0px")
+            lb2 = QtGui.QLabel("<html><span color='white'>"+ fullname.title() +"  </span><br><span style='color:#4C4D4F'>"+ sex +"</span></html>")
+            lb2.setFont(QtGui.QFont("Tahoma", 9))
+            lb2.setStyleSheet("color: white; border-bottom:1px inset #4C4D4F")
+            lb2.setFixedWidth(350)
+            lb2.setFixedHeight(30)
+            w_wid = QtGui.QHBoxLayout()
+            w_wid.addWidget(lb1)
+            w_wid.addWidget(lb2)
+            self.hold_a_gridw.append(lb1)
+            self.hold_a_gridw.append(lb2)
+            self.hold_a_gridl.append(w_wid)
+            self.s_grid.addLayout(w_wid)
+            k += 1
+        self.s_grid.addStretch()
+        #self.s_frame3.setLayout(self.s_grid)
+        #self.scrollContent.show()   
+    
+    def getTreeClass(self, sid, num,  title):
+        '''
+        put all persons in column (dark column)
+        photo, name, sex
+        '''
+        self.profile_title = title
+        persons = {}
+        persons[1] = 'Fees'
+        persons[2] = 'Payment'
+        persons[3] = 'Balance'
+        persons[4] = 'Subjects'
+        persons[5] = 'Academic Report'
+        persons[6] = 'Academic Report: Summary'
+        persons[7] = 'Academic Report: Students Analysis'
+        persons[8] = 'Academic Report: Subjects Analysis'
+        persons[9] = 'Affective Report'
+        persons[10] = 'Affective Report: Summary'
+        persons[11] = 'Affective Report: Students Analysis'
+        persons[12] = 'Affective Report: Atitude Subjects Analysis'
+        persons[13] = 'Psychomotor Report'
+        persons[14] = 'Psychomotor Report: Summary'
+        persons[15] = 'Psychomotor Report: Students Analysis'
+        persons[16] = 'Psychomotor Report: Skills Analysis'
+        persons[17] = 'Report Card'
         
+        for i in self.hold_a_gridw:
+           sip.delete(i)
+         
+        for i in self.hold_a_gridl:
+           sip.delete(i)
+           
+         
+        self.hold_a_gridw = []
+        self.hold_a_gridl = []
+        s_grid_header = QtGui.QLabel("<h2 style='color:white'>"+ title +"</h2>")
+        w_wid = QtGui.QHBoxLayout()
+        w_wid.addWidget(s_grid_header)
+        self.s_grid.addLayout(w_wid)
+        self.hold_a_gridw.append(s_grid_header)
+        self.hold_a_gridw.append(w_wid)
+        k = 1
+        for i in persons:
+            fullname = str(persons[i])
+            image1 = Image.open('img/stdpic.png')
+            imageQ1 = ImageQt(image1)
+            imagep1 =  QtGui.QPixmap( QtGui.QPixmap.fromImage(QtGui.QImage(imageQ1).scaled(100, 100, QtCore.Qt.IgnoreAspectRatio)))
+            lb1 = QtGui.QPushButton()
+            self.connect(lb1, QtCore.SIGNAL("clicked()"), lambda x = sid, n = num, y = i: self.pullProfile(x, 3, y, n))
+            lb1.setIcon(QtGui.QIcon(imagep1))
+            lb1.setMaximumHeight(30)
+            lb1.setMaximumWidth(31)
+            lb1.setContentsMargins(0 ,0, 0, 0)
+            lb1.setStyleSheet("border:none; padding:0px;marging:0px")
+            lb2 = QtGui.QLabel("<html><span color='white'>"+ fullname.title() +"  </span><br><span style='color:#4C4D4F'>56</span></html>")
+            lb2.setFont(QtGui.QFont("Tahoma", 9))
+            lb2.setStyleSheet("color: white; border-bottom:1px inset #4C4D4F")
+            lb2.setFixedWidth(350)
+            lb2.setFixedHeight(30)
+            w_wid = QtGui.QHBoxLayout()
+            w_wid.addWidget(lb1)
+            w_wid.addWidget(lb2)
+            self.hold_a_gridw.append(lb1)
+            self.hold_a_gridw.append(lb2)
+            self.hold_a_gridl.append(w_wid)
+            self.s_grid.addLayout(w_wid)
+            k += 1
+        self.s_grid.addStretch()
+        #self.s_frame3.setLayout(self.s_grid)
+        #self.scrollContent.show() 
+        
+    def getTreeData(self, persons, title):
+        '''
+        put all persons in coloumn (dark column)
+        photo, name, sex
+        '''
+        self.profile_title = title
+        for i in self.hold_a_gridw:
+           sip.delete(i)
+         
+        for i in self.hold_a_gridl:
+           sip.delete(i)
+            
+        self.hold_a_gridw = []
+        self.hold_a_gridl = []
+        s_grid_header = QtGui.QLabel("<h2 style='color:white'>"+ title +"</h2>")
+        w_wid = QtGui.QHBoxLayout()
+        w_wid.addWidget(s_grid_header)
+        self.s_grid.addLayout(w_wid)
+        self.hold_a_gridw.append(s_grid_header)
+        self.hold_a_gridw.append(w_wid)
+        k = 1
+        for i in persons:
+            fullname = str(i['name']).title()
+            tullname = str(i['abbrv']).title()
+            image1 = Image.open('img/stdpic.png')
+            imageQ1 = ImageQt(image1)
+            imagep1 =  QtGui.QPixmap( QtGui.QPixmap.fromImage( QtGui.QImage(imageQ1).scaled(100, 100, QtCore.Qt.IgnoreAspectRatio)))
+            lb1 = QtGui.QPushButton()
+            self.connect(lb1, QtCore.SIGNAL("clicked()"), lambda x = i['id']: self.pullProfile(x, 4))
+            lb1.setIcon(QtGui.QIcon(imagep1))
+            lb1.setMaximumHeight(30)
+            lb1.setMaximumWidth(31)
+            lb1.setContentsMargins(0 ,0, 0, 0)
+            lb1.setStyleSheet("border:none; padding:0px;marging:0px")
+            lb2 = QtGui.QLabel("<html><span color='white'>"+ fullname.title() +"  </span><br><span style='color:#4C4D4F'>"+ tullname +"</span></html>")
+            lb2.setFont(QtGui.QFont("Tahoma", 9))
+            lb2.setStyleSheet("color: white; border-bottom:1px inset #4C4D4F")
+            lb2.setFixedWidth(350)
+            lb2.setFixedHeight(30)
+            w_wid = QtGui.QHBoxLayout()
+            w_wid.addWidget(lb1)
+            w_wid.addWidget(lb2)
+            self.hold_a_gridw.append(lb1)
+            self.hold_a_gridw.append(lb2)
+            self.hold_a_gridl.append(w_wid)
+            self.s_grid.addLayout(w_wid)
+            k += 1
+        self.s_grid.addStretch()
+        #self.s_frame3.setLayout(self.s_grid)
+        #self.scrollContent.show()   
+    
+    def pullProfile(self, a, b, c = None, d = None, e = None):
+        self.profile_a = a
+        self.profile_b = b
+        if c:
+            self.profile_c = c
+        else:
+            self.profile_c = ''
+        if d:
+            self.profile_d = d
+        else:
+            self.profile_d = ''
+        if e:
+            self.profile_e = e
+        else:
+            self.profile_e = ''
+        
+        if hasattr(self, 'bioText'):
+            self.bioText.clear()
+        else:
+           self.bioText = QtGui.QTextEdit() 
+        
+        self.bioText.setMinimumWidth(self.minW)
+        self.bioText.setMinimumHeight(self.maxW)
+        self.bioText.setMaximumHeight(self.maxW)
+        btext =''
+        pro = Profile()
+        if b == 1:
+            #students
+            self.menuUiz(b)
+            self.title = 'Student Profile'
+            self.active_person = a
+            self.active_set = b
+            self.active_cl = ''
+            btext = pro.student(self.profile_a, self.profile_title)
+        elif b == 2:
+            #staff
+            self.menuUiz(b)
+            self.title = 'Staff Profile'
+            self.active_person = a
+            self.active_set = b
+            self.active_cl = ''
+            btext = pro.staff(self.profile_a, self.profile_title)
+        elif b == 3:
+            #class
+            self.title = 'Class Profile'
+            self.active_person = ''
+            self.active_set = ''
+            self.active_cl = a
+            self.active_class_item = c
+            semester  = self.mainTermSession
+            items = d
+            self.menuUiz(b)
+            btext = pro.classItems(self.profile_a, self.profile_d, semester, self.profile_c, self.profile_title)
+            
+        elif b == 4:
+            #class
+            self.menuUiz(b)
+            self.title = 'Expenses Profile'
+            self.active_person = ''
+            self.active_set = ''
+            self.active_cl = a
+            cla = a
+            session  = self.mainTermSession
+            items = c
+            btext = pro.classItems(cla, session,  items)
+            
+        else:
+           btext = '' 
+        
+        self.bioText.insertHtml(btext)
+        self.bioText.setStyleSheet(self.textStyle)
+        self.document = self.bioText
+        self.s_v_widget2_hbox_body_layout.addWidget(self.bioText)
+    
+    def pullProfile1(self, a, b, c = None, d = None, e = None, f= None):
+        self.profile_a = a
+        self.profile_b = b
+        if c:
+            self.profile_c = c
+        else:
+            self.profile_c = ''
+        if d:
+            self.profile_d = d
+        else:
+            self.profile_d = ''
+        if e:
+            self.profile_e = e
+        else:
+            self.profile_e = ''
+        
+        
+        if hasattr(self, 'bioText'):
+            self.bioText.close()
+            self.bioText = QtGui.QTextEdit()
+        else:
+           self.bioText = QtGui.QTextEdit() 
+        
+        self.bioText.setMinimumWidth(self.minW)
+        self.bioText.setMinimumHeight(self.maxW)
+        self.bioText.setMaximumHeight(self.maxW)
+        btext =''
+        pro = Profile()
+        if b == 1:
+            #students
+            #self.menuUiz(b)
+            self.title = 'Student Profile'
+            self.active_person = a
+            self.active_set = b
+            self.active_cl = ''
+            btext = pro.student(self.profile_a, self.profile_title)
+        elif b == 2:
+            #staff
+            #self.menuUiz(b)
+            self.title = 'Staff Profile'
+            self.active_person = a
+            self.active_set = b
+            self.active_cl = ''
+            btext = pro.staff(self.profile_a, self.profile_title)
+        elif b == 3:
+            #class
+            self.title = 'Class Profile'
+            self.active_person = ''
+            self.active_set = ''
+            self.active_cl = a
+            self.active_class_item = c
+            semester  = self.mainTermSession
+            items = d
+            #self.menuUiz(b)
+            btext = pro.classItems(self.profile_a, self.profile_d, semester, self.profile_c, self.profile_title, f)
+            
+        elif b == 4:
+            #class
+            #self.menuUiz(b)
+            self.title = 'Expenses Profile'
+            self.active_person = ''
+            self.active_set = ''
+            self.active_cl = a
+            cla = a
+            session  = self.mainTermSession
+            items = c
+            btext = pro.classItems(cla, session,  items)
+            
+        else:
+           btext = '' 
+        
+        self.bioText.insertHtml(btext)
+        self.bioText.setStyleSheet(self.textStyle)
+        self.document = self.bioText
+        self.s_v_widget2_hbox_body_layout.addWidget(self.bioText)
+        
+    
+        
+    def menuUiz(self, cod):
+        self.s_v_widget2_menu.clear()
+        mainMenu = self.s_v_widget2_menu
+        
+        fileMenu = mainMenu.addMenu('Edit')
+        
+        editBioMenu = QtGui.QAction('Bio-Data, Contact Information', self)
+        editBioMenu.setStatusTip('EditData')
+        editBioMenu.triggered.connect(lambda state,  x =1: self.editDataMenu(state, x))
+        fileMenu.addAction(editBioMenu)
+        
+        editOthersMenu = QtGui.QAction('Others', self)
+        editOthersMenu.setStatusTip('EditOthers')
+        editOthersMenu.triggered.connect(lambda state,  x = 2:self.editDataMenu(state, x))
+        fileMenu.addAction(editOthersMenu)
+
+        selections = {}
+        self.selMenu = mainMenu.addMenu('Column Visibility')
+        self.selMenu_hold = {}
+        self.selSes_hold = {}
+        if cod == 1:
+            selections = Headers().staffs()
+            for a in selections:
+                d =  QtGui.QAction(selections[a], self, checkable = True)
+                d.changed.connect(self.menuUizReload)
+                d.setChecked(True)
+                self.selMenu_hold[a] = d
+                self.selMenu.addAction(d)
+        
+        if cod == 2:
+            selections = Headers().students()
+            for a in selections:
+                d =  QtGui.QAction(selections[a], self, checkable = True)
+                d.changed.connect(self.menuUizReload)
+                d.setChecked(True)
+                self.selMenu_hold[a] = d
+                self.selMenu.addAction(d)
+                
+        if cod == 3:
+            selections = Headers().headers(self.active_class_item)
+            for a in selections:
+                d =  QtGui.QAction(selections[a][1], self, checkable = True)
+                d.changed.connect(self.menuUizReload)
+                d.setChecked(True)
+                self.selMenu_hold[a] = d
+                self.selMenu.addAction(d)  
+            
+            sessionMenu = mainMenu.addMenu('Term')
+            sessionss = self.getTerm()
+            for a in sessionss:
+                d =  QtGui.QAction(str(sessionss[a]).upper(), self)
+                d.changed.connect(self.menuUizReload)
+                d.setChecked(True)
+                self.selSes_hold[a] = d
+                sessionMenu.addAction(d)
+                
+        printMenu = mainMenu.addMenu('Print')
+        printPrev = QtGui.QAction('Print Preview', self)
+        printPrev.setStatusTip('printprev')
+        printPrev.triggered.connect(self.printReportPreview)
+        printMenu.addAction(printPrev)
+        
+        printPdfPrev = QtGui.QAction('PDF', self)
+        printPdfPrev.setStatusTip('printpdf')
+        printMenu.addAction(printPdfPrev)
+        printPdfPrev.triggered.connect(self.lunchPrintPdf)
+    
+        return mainMenu
+    
+    def menuUizReload(self):
+        arr = [] 
+        if self.selMenu_hold:   
+            for g in self.selMenu_hold:
+                if self.selMenu_hold[g].isChecked() == True:
+                        arr.append(g)
+       
+        if len(self.selMenu_hold) == len(arr):
+            pass
+        else:
+            self.pullProfile1(self.profile_a, self.profile_b, self.profile_c, self.profile_d, self.profile_e, arr)
+        
+    def editDataMenu(self, state,  a):
+        if a == 1:
+            form = StaffFormEdit(self.active_person)
+            form.show()
+        if a == 2:
+            form = StaffFormDetails(self.active_person)
+            form.show()
+        if a == 3:
+            form = StaffAccess(self.active_person)
+            form.show()
+            
+        self.menuUizReload(a, 2)
+            
     def windowMain(self):
         font = QtGui.QFont()
         font.setPointSize(15)
@@ -1557,6 +2207,7 @@ class Window(QtGui.QMainWindow):
             pass
         
         self.tree1 = QtGui.QTreeWidget()
+        self.tree1.setContentsMargins(0, 0, 0, 0)
         self.tree1.clear()
         self.tree1.setHeaderLabel("Add/Remove Column")
         self.hold_checkbox = {}
@@ -1601,6 +2252,7 @@ class Window(QtGui.QMainWindow):
             
             self.tree1.itemClicked.connect(self.tableHeadersSelectorAction)
             self.f_boxx.addWidget(self.tree1)
+            self.f_boxx.setContentsMargins(0, 0, 0, 0)
     
     
     def tableHeadersSelectorAction(self):
@@ -1680,6 +2332,14 @@ class Window(QtGui.QMainWindow):
     
     def myTableClassUnit(self, state, session):       
         #get list of students
+        
+        self.table_term = session
+        self.table_sub_state = 8
+        tes = Valid().pullData('terms', 1, {'id':session})
+        ses = Valid().pullData('session', 1, {'id':tes['sessionID']})
+        self.table_session = tes['sessionID']
+        t_title = str(ses['name']).upper()+' '+str(tes['name']).title()+' Term School Population '
+        self.tabletitle.setText(t_title)
         cn = Dat()
         
         data = cn.studentClassUnitData(session)
@@ -1805,12 +2465,9 @@ class Window(QtGui.QMainWindow):
             print_format[5] = 'class="centers" align="center" style="text-align:center;"'
             
             
-            self.report_table_holder = [session, print_header, print_body, print_footer, print_format]
+            self.report_table_holder = [session, print_header, print_body, print_footer, print_format, t_title]
             self.tabl.close()
             self.tabl = self.table
-            self.stackRightBar.setCurrentIndex(6)
-            self.stackLeftBar.setCurrentIndex(0)
-            self.checkBoxStack.setCurrentIndex(0)
             self.hbox2.addWidget(self.tabl)
             self.tabl.show()
         #report view
@@ -1920,6 +2577,13 @@ class Window(QtGui.QMainWindow):
         #state = 3
         #state = 4
         #state = 5 
+        self.table_term = session
+        self.table_sub_state = 7
+        tes = Valid().pullData('terms', 1, {'id':session})
+        ses = Valid().pullData('session', 1, {'id':tes['sessionID']})
+        self.table_session = tes['sessionID']
+        t_title = str(ses['name']).upper()+' '+str(tes['name']).title()+' Term '
+        #self.tabletitle.setText(t_title)
         
         cn = Dat()
             # initiate table if not exist
@@ -1948,12 +2612,15 @@ class Window(QtGui.QMainWindow):
         self.table.setEditTriggers(QtGui.QAbstractItemView.NoEditTriggers)
             
         if state == 0:
-            tableTitle = 'CLASS FEES REPORT'
-            self.tabletitle.setText(tableTitle)
+            t_title = t_title+'School Payment Report'
+            self.tabletitle.setText(t_title)
             data = cn.studentClassUnitFee(session)
-            if len(data) > 0:
-                data = data
-            else:
+            try:
+                if len(data) > 0:
+                    data = data
+                else:
+                    data = {}
+            except:
                 data = {}
             
             al = {}
@@ -2101,7 +2768,7 @@ class Window(QtGui.QMainWindow):
             item_famtx = QtGui.QTableWidgetItem(str("{:,}".format(tot_fi)))
             item_famtx.setTextAlignment(QtCore.Qt.AlignRight)
             
-            self.table.setItem(i, 0, QtGui.QTableWidgetItem(str(q)))
+            self.table.setItem(i, 0, QtGui.QTableWidgetItem(str('')))
             self.table.setItem(i, 1, QtGui.QTableWidgetItem(str('')))
             self.table.setItem(i, 2, QtGui.QTableWidgetItem(str('TOTAL')))
             self.table.setItem(i, 3, item_malex)
@@ -2125,40 +2792,47 @@ class Window(QtGui.QMainWindow):
             print_footer[10] = str("{:,}".format(tot_p))
             print_footer[11] = str("{:,}".format(tot_fi))
             
-            print_format = {}
-            print_format[1] = ''
-            print_format[2] = ''
-            print_format[3] = ''
-            print_format[4] = 'class="centers" align="center" style="text-align:center;"'
-            print_format[5] = 'class="centers" align="center" style="text-align:center;"'
-            print_format[6] = 'class="centers" align="center" style="text-align:center;"'
-            print_format[7] = ''
-            print_format[8] = ''
-            print_format[9] = 'class="centers" align="right" style="text-align:center;"'
-            print_format[10] = 'class="centers" align="right" style="text-align:center;"'
-            print_format[11] = 'class="centers" align="right" style="text-align:center;"'
+            print_formart = {}
+            print_formart[1] = ''
+            print_formart[2] = ''
+            print_formart[3] = ''
+            print_formart[4] = 'class="centers" align="center" style="text-align:center;"'
+            print_formart[5] = 'class="centers" align="center" style="text-align:center;"'
+            print_formart[6] = 'class="centers" align="center" style="text-align:center;"'
+            print_formart[7] = ''
+            print_formart[8] = ''
+            print_formart[9] = 'class="centers" align="right" style="text-align:center;"'
+            print_formart[10] = 'class="centers" align="right" style="text-align:center;"'
+            print_formart[11] = 'class="centers" align="right" style="text-align:center;"'
             
-            self.report_table_holder = [session, print_header, print_body, print_footer, print_format]
-
+        
         #report view
         elif state == 1:
             class_title = self.getDataById(clasz)
             class_title_name = class_title['abbrv']
-            tableTitle = str(class_title_name)+' FEES'
-            self.tabletitle.setText(tableTitle)
+            tableTitle = str(class_title_name)
+            t_title = t_title+' '+tableTitle+' School Fees Payment Report'
+            self.tabletitle.setText(t_title)
             cn = StudentTable(session, [None], [clasz], [None])
             raw_students = cn.classStudent()
             data = cn.classUnitStudentFee(raw_students)
+            try:
+                if len(data) > 0:
+                    data = data
+                else:
+                    data = {}
+            except:
+                data = {}
             
             da = data[0]
             da1 = data[1]
             da2 = data[2]
             al = {}
             for r in da:
-                al[r[0]] = {}
-                al[r[0]]['schno'] = r[1]
-                al[r[0]]['name'] = str(r[2]+' '+r[3]+' '+r[4]).title()    
-                al[r[0]]['cla'] = str(r[32]+r[31]).upper() 
+                al[r['id']] = {}
+                al[r['id']]['schno'] = r['schno']
+                al[r['id']]['name'] = str(r['surname']+' '+r['firstname']+' '+r['othername']).title() 
+                al[r['id']]['cla'] = str(r['classname']+r['classunitname']).upper() 
                 
             for r in da1:
                 al[r['studentID']]['pay'] = r['amount']
@@ -2243,22 +2917,22 @@ class Window(QtGui.QMainWindow):
             print_footer[6] = str("{:,}".format(tot_p))
             print_footer[7] = str("{:,}".format(tot_b))
             
-            print_format = {}
-            print_format[1] = ''
-            print_format[2] = ''
-            print_format[3] = ''
-            print_format[4] = 'text-align:center;'
-            print_format[5] = 'text-align:right;'
-            print_format[6] = 'text-align:right;'
-            print_format[7] = 'text-align:right;'
+            print_formart = {}
+            print_formart[1] = ''
+            print_formart[2] = ''
+            print_formart[3] = ''
+            print_formart[4] = 'text-align:center;'
+            print_formart[5] = 'text-align:right;'
+            print_formart[6] = 'text-align:right;'
+            print_formart[7] = 'text-align:right;'
             
-            self.report_table_holder = [session, print_header, print_body, print_footer, print_format]
             
         elif state == 2:
             class_title = self.getDataById(clasz)
             class_title_name = class_title['abbrv']
-            tableTitle = str(class_title_name)+' STUDENTS FEES DETAILS'
-            self.tabletitle.setText(tableTitle)
+            tableTitle = str(class_title_name)
+            t_title = t_title+' '+tableTitle+' Fees/Payment Report'
+            self.tabletitle.setText(t_title)
             cn = StudentTable(session, [None] , [clasz],  [None])
             raw_students = cn.classStudent()
             data = cn.classUnitStudentFeeDetails(raw_students)
@@ -2269,10 +2943,10 @@ class Window(QtGui.QMainWindow):
             al = {}
             fees_al = []
             for r in da:
-                al[r[0]] = {}
-                al[r[0]]['schno'] = r[1]
-                al[r[0]]['name'] = str(r[2]+' '+r[3]+' '+r[3]).title() 
-                al[r[0]]['cla'] = str(r[32]+r[31]).upper()
+                al[r['id']] = {}
+                al[r['id']]['schno'] = r['schno']
+                al[r['id']]['name'] = str(r['surname']+' '+r['firstname']+' '+r['othername']).title() 
+                al[r['id']]['cla'] = str(r['classname']+r['classunitname']).upper()
            
             for r in da1:
                 al[r['studentID']][r['feeID']] = r['amount']
@@ -2364,13 +3038,13 @@ class Window(QtGui.QMainWindow):
             print_footer[k1 + 1] = str(fin_amts)
             print_formart[k1 + 1] = ''
         
-            self.report_table_holder = [session, print_header, print_body, print_footer, print_formart]
             
         elif state == 3:
             class_title = self.getDataById(clasz)
             class_title_name = class_title['abbrv']
-            tableTitle = str(class_title_name)+' STUDENTS PAYMENT DETAILS'
-            self.tabletitle.setText(tableTitle)
+            tableTitle = str(class_title_name).title()
+            t_title = t_title+' '+tableTitle+' Payment Report'
+            self.tabletitle.setText(t_title)
             cn = StudentTable(session, [None], [clasz], [None])
             raw_students = cn.classStudent()
             data = cn.classUnitStudentPayDetails(raw_students)
@@ -2381,10 +3055,10 @@ class Window(QtGui.QMainWindow):
             al = {}
             fees_al = []
             for r in da:
-                al[r[0]] = {}
-                al[r[0]]['schno'] = r[1]
-                al[r[0]]['name'] = str(r[2]+' '+r[3]+' '+r[4]).title() 
-                al[r[0]]['cla'] = str(r[32]+r[31]).upper()
+                al[r['id']] = {}
+                al[r['id']]['schno'] = r['schno']
+                al[r['id']]['name'] = str(r['surname']+' '+r['firstname']+' '+r['othername']).title() 
+                al[r['id']]['cla'] = str(r['classname']+r['classunitname']).upper()
            
             for r in da1:
                 al[r['studentID']][r['feeID']] = r['amount']
@@ -2471,7 +3145,6 @@ class Window(QtGui.QMainWindow):
             print_footer[k1 + 1] = str(fin_amts)
             print_formart[k1 + 1] = 'align = "right"'
         
-            self.report_table_holder = [session, print_header, print_body, print_footer, print_formart]
             
         elif state == 4:
             '''
@@ -2480,8 +3153,9 @@ class Window(QtGui.QMainWindow):
             class_title_unit = self.getDataById(claszunit)
             class_title = self.getDataById(class_title['subID'])
             class_title_name = str(class_title['abbrv']+' '+class_title_unit['abbrv']).upper()
-            tableTitle = str(class_title_name)+' FEES  & PAYMENT SUMMARY'
-            self.tabletitle.setText(tableTitle)
+            tableTitle = str(class_title_name).title()
+            t_title = t_title+' '+tableTitle+' Fees/Payment Report'
+            self.tabletitle.setText(t_title)
             
             cn = StudentTable(session, [None], [None], [claszunit])
             raw_students = cn.classUnitStudent()
@@ -2492,9 +3166,9 @@ class Window(QtGui.QMainWindow):
             da2 = data[2]
             al = {}
             for r in da:
-                al[r[0]] = {}
-                al[r[0]]['schno'] = r[1]
-                al[r[0]]['name'] = str(r[2]+' '+r[3]+' '+r[4]).title()    
+                al[r['id']] = {}
+                al[r['id']]['schno'] = r['schno']
+                al[r['id']]['name'] = str(r['surname']+' '+r['firstname']+' '+r['othername']).title()    
            
             for r in da1:
                 al[r['studentID']]['pay'] = r['amount']
@@ -2582,22 +3256,22 @@ class Window(QtGui.QMainWindow):
             print_footer[5] = str("{:,}".format(tot_p))
             print_footer[6] = str("{:,}".format(tot_b))
             
-            print_format = {}
-            print_format[1] = 'style="width:10px;"'
-            print_format[2] = 'align="center"'
-            print_format[3] = ''
-            print_format[4] = 'align="right"'
-            print_format[5] = 'align="right"'
-            print_format[6] = 'align="right"'
+            print_formart = {}
+            print_formart[1] = 'style="width:10px;"'
+            print_formart[2] = 'align="center"'
+            print_formart[3] = ''
+            print_formart[4] = 'align="right"'
+            print_formart[5] = 'align="right"'
+            print_formart[6] = 'align="right"'
            
-            self.report_table_holder = [session, print_header, print_body, print_footer, print_format]
         
         elif state == 5:
             class_title_unit = self.getDataById(claszunit)
             class_title = self.getDataById(class_title_unit['subID'])
             class_title_name = str(class_title['abbrv']+' '+class_title_unit['abbrv']).upper()
-            tableTitle = str(class_title_name)+' PAYMENTS SUMMARY'
-            self.tabletitle.setText(tableTitle)
+            tableTitle = str(class_title_name).title()
+            t_title = t_title+' '+tableTitle+' Payments Report'
+            self.tabletitle.setText(t_title)
             cn = StudentTable(session, [None], [None], [claszunit])
             raw_students = cn.classUnitStudent()
             data = cn.classUnitStudentFeeDetails(raw_students)
@@ -2608,9 +3282,9 @@ class Window(QtGui.QMainWindow):
             al = {}
             fees_al = []
             for r in da:
-                al[r[0]] = {}
-                al[r[0]]['schno'] = r[1]
-                al[r[0]]['name'] = str(r[2]+' '+r[3]+' '+r[4]).title()    
+                al[r['id']] = {}
+                al[r['id']]['schno'] = r['schno']
+                al[r['id']]['name'] = str(r['surname']+' '+r['firstname']+' '+r['othername']).title()
            
             for r in da1:
                 al[r['studentID']][r['feeID']] = r['amount']
@@ -2694,14 +3368,14 @@ class Window(QtGui.QMainWindow):
             print_footer[k1 + 1] = str(fin_amts)
             print_formart[k1 + 1] = ''
         
-            self.report_table_holder = [session, print_header, print_body, print_footer, print_formart]
         
         elif state == 6:
             class_title_unit = self.getDataById(claszunit)
             class_title = self.getDataById(class_title_unit['subID'])
             class_title_name = str(class_title['abbrv']+' '+class_title_unit['abbrv']).upper()
-            tableTitle = str(class_title_name)+' FEES SUMMARY'
-            self.tabletitle.setText(tableTitle)
+            tableTitle = str(class_title_name).title()
+            t_title = t_title+' '+tableTitle+' Fees Report'
+            self.tabletitle.setText(t_title)
             cn = StudentTable(session, [None], [None], [claszunit])
             raw_students = cn.classUnitStudent()
             data = cn.classUnitStudentPayDetails(raw_students)
@@ -2712,9 +3386,10 @@ class Window(QtGui.QMainWindow):
             al = {}
             fees_al = []
             for r in da:
-                al[r[0]] = {}
-                al[r[0]]['schno'] = r[1]
-                al[r[0]]['name'] = str(r[2]+' '+r[3]+' '+r[4]).title()    
+                al[r['id']] = {}
+                al[r['id']]['schno'] = r['schno']
+                al[r['id']]['name'] = str(r['surname']+' '+r['firstname']+' '+r['othername']).title() 
+                al[r['id']]['cla'] = str(r['classname']+r['classunitname']).upper()   
            
             for r in da1:
                 al[r['studentID']][r['feeID']] = r['amount']
@@ -2797,20 +3472,24 @@ class Window(QtGui.QMainWindow):
             self.table.setItem(i, k1, QtGui.QTableWidgetItem(str(fin_amts)))
             print_footer[k1 + 1] = str("{:,}".format(tot_f))
             print_formart[k1 + 1] = 'align:right'
-            self.report_table_holder = [session, print_header, print_body, print_footer, print_formart]
+        
+        self.report_table_holder = [session, print_header, print_body, print_footer, print_formart, t_title]
         
         self.table.hideColumn(0)
         self.tabl.close()
         self.tabl = self.table
-        self.stackRightBar.setCurrentIndex(5)
-        self.stackLeftBar.setCurrentIndex(0)
         self.checkBoxStack.setCurrentIndex(0)
         self.hbox2.addWidget(self.tabl)
         self.tabl.show()
     
     def myTableSearch(self, students):       
         #get list of students
-        
+        self.table_term = self.mainTermSession
+        self.table_sub_state = 7
+        tes = Valid().pullData('terms', 1, {'id':self.mainTermSession})
+        ses = Valid().pullData('session', 1, {'id':tes['sessionID']})
+        self.table_session = tes['sessionID']
+        t_title = str(ses['name']).upper()+' '+str(tes['name']).title()+' Term '
         self.students = students
         
         #all table headers titles
@@ -2892,7 +3571,7 @@ class Window(QtGui.QMainWindow):
                 print_formart[3] = ''
                 
     
-                self.report_table_holder = [self.mainTerm, print_header, print_body, print_footer, print_formart]
+                self.report_table_holder = [self.mainTerm, print_header, print_body, print_footer, print_formart, t_title]
             #self.table.setSelectionMode(QtGui.QAbstractItemView.ExtendedSelection)
             return self.table
         #report view
@@ -2924,7 +3603,8 @@ class Window(QtGui.QMainWindow):
                 new_data[i['itemID']]['state'][i['state']] = [ float(i['quantity']), i['num']]
        
             data = new_data
-        self.tabletitle.setText(title)
+            
+        
         self.tableHeadersSelector(cols)
         print_header = {}
         a0 = 1
@@ -3023,7 +3703,7 @@ class Window(QtGui.QMainWindow):
                     item_prices = QtGui.QTableWidgetItem(str(tot_prices))
                     item_prices.setTextAlignment(QtCore.Qt.AlignRight)
                     
-                    self.table.setItem(i, 0, QtGui.QTableWidgetItem(j))
+                    self.table.setItem(i, 0, QtGui.QTableWidgetItem(str(j)))
                     self.table.setItem(i, 1, QtGui.QTableWidgetItem(str(data[j]['name']).title()))
                     self.table.setItem(i, 2, item_ins)
                     self.table.setItem(i, 3, item_out)
@@ -3140,8 +3820,8 @@ class Window(QtGui.QMainWindow):
                 print_formart[3] = 'align="right"'
             
 
-        self.report_table_holder = [self.mainTerm, print_header, print_body, print_footer, print_formart]
-        #self.table.setSelectionMode(QtGui.QAbstractItemView.ExtendedSelection)
+        self.report_table_holder = [self.mainTerm, print_header, print_body, print_footer, print_formart, title]
+       
         self.table.hideColumn(0)
         self.tabl.close()
         self.tabl = self.table
@@ -3184,19 +3864,21 @@ class Window(QtGui.QMainWindow):
             
         al = {}
         for r in da:
-            al[r[0]] = {}
-            al[r[0]]['schno'] = r[1]
-            al[r[0]]['name'] = str(r[2]+' '+r[3]+' '+r[4]).title()    
+            al[r['id']] = {}
+            al[r['id']]['schno'] = r['schno']
+            al[r['id']]['name'] = str(r['surname']+' '+r['firstname']+' '+r['othername']).title()    
            
         for r in da1:
             try:
                 al[r['studentID']]['clasz'] = str(r['classname']+" "+r['classunit']).upper()
             except:
-                al[r['studentID']]['clasz'] = str("--").upper()
+                pass
+                #al[r['studentID']]['clasz'] = str("--").upper()
             try:
                 al[r['studentID']]['subjects'] = str(r['subjects']).upper()
             except:
-                al[r['studentID']]['subjects'] = str("--").upper()
+                pass
+                #al[r['studentID']]['subjects'] = str("--").upper()
         
             #all table headers titles
         cols = ['id', 'SCH. NO.',  'FULLNAME', 'CLASS', 'SUBJECTS']
@@ -3272,7 +3954,6 @@ class Window(QtGui.QMainWindow):
     def myTable1(self, state, students = {}):       
         #get list of students
         
-        #students = list(set(a))
         if students:
             self.students = students
         else:
@@ -3375,15 +4056,16 @@ class Window(QtGui.QMainWindow):
                 print_formart[9] = ''
     
                 self.report_table_holder = [self.mainTerm, print_header, print_body, print_footer, print_formart]
-            #self.table.setSelectionMode(QtGui.QAbstractItemView.ExtendedSelection)
+            
             return self.table
         #report view
         elif state == 1:
             pass
     
-    def myTable2(self, state, a = []):
+    def myTable2(self, state, students):
         #get list of students
-        students = list(set(a))
+    
+        #print(students)
         #all table headers titles
         cols = self.conTable
         print_header = {}
@@ -3398,7 +4080,7 @@ class Window(QtGui.QMainWindow):
             self.table = QtGui.QTableWidget()
         else:
             self.table = QtGui.QTableWidget()
-
+        
         #header
         header = self.table.horizontalHeader()
         header.setResizeMode(QtGui.QHeaderView.ResizeToContents)
@@ -3417,35 +4099,39 @@ class Window(QtGui.QMainWindow):
         self.table.setHorizontalHeaderLabels(cols)
         self.table.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         self.table.customContextMenuRequested.connect(self.handleHeaderMenu)
-        
+        #print(students)
         #table content from db
         i = 0
         print_body = {}
         for j in students:
             print_body1 = {}
-            q = list(j)
-            self.table.setItem(i, 0, QtGui.QTableWidgetItem(str(q[0])))
-            self.table.setItem(i, 1, QtGui.QTableWidgetItem(str(q[1])))
-            fullname= q[2]+' '+q[3]+' '+q[4]
+            q = j
+            #row id
+            self.table.setItem(i, 0, QtGui.QTableWidgetItem(str(q['id'])))
+            #school id
+            self.table.setItem(i, 1, QtGui.QTableWidgetItem(str(q['schno'])))
+            #fullname
+            fullname= str(q['surname'])+' '+str(q['firstname'])+' '+str(q['othername'])
             self.table.setItem(i, 2, QtGui.QTableWidgetItem(str(fullname.title())))
-            classname= q[32]+' '+q[31]
+            #classname
+            classname= str(q['classname'])+' '+str(q['classunitname'])
             self.table.setItem(i, 3, QtGui.QTableWidgetItem(str(classname.upper())))
-            fg1 = str(q[12]).title() + '\n('+str(q[14]).capitalize()+') \n'+str(q[22])+' \n'+str(q[20])
-            fg2 = str(q[13]).title() + '\n('+str(q[15]).capitalize()+') \n'+str(q[23])+' \n'+str(q[21])
+            fg1 = str(q['g1']).title() + '\n('+str(q['g1rel']).capitalize()+') \n'+str(q['g1addr'])+' \n'+str(q['g1email'])
+            fg2 = str(q['g2']).title() + '\n('+str(q['g2rel']).capitalize()+') \n'+str(q['g2addr'])+' \n'+str(q['g2email'])
             self.table.setItem(i, 4, QtGui.QTableWidgetItem(str(fg1)))
-            self.table.setItem(i, 5, QtGui.QTableWidgetItem(str(q[16])+' '+str(q[17])))
+            self.table.setItem(i, 5, QtGui.QTableWidgetItem(str(q['g1p1'])+' '+str(q['g1p2'])))
             self.table.setItem(i, 6, QtGui.QTableWidgetItem(str(fg2)))
-            self.table.setItem(i, 7, QtGui.QTableWidgetItem(str(q[18])+' '+str(q[19]))) 
+            self.table.setItem(i, 7, QtGui.QTableWidgetItem(str(q['g2p1'])+' '+str(q['g2p2']))) 
             
             print_body1[1] = i + 1
-            print_body1[2] = str(q[1])
+            print_body1[2] = str(q['schno'])
             print_body1[3] = str(fullname.title())
             print_body1[4] = str(classname.upper())
             print_body1[5] = str(fg1)
-            print_body1[6] = str(q[16])+' '+str(q[17])
+            print_body1[6] = str(q['g1p1'])+' '+str(q['g1p2'])
             print_body1[7] = str(fg2)
-            print_body1[8] = str(q[18])+' '+str(q[19])
-            print_body[q[0]] = print_body1
+            print_body1[8] = str(q['g2p1'])+' '+str(q['g2p2'])
+            print_body[i + 1] = print_body1
             i += 1
             print_footer = {}
                 
@@ -3473,8 +4159,8 @@ class Window(QtGui.QMainWindow):
         self.table.setSelectionMode(QtGui.QAbstractItemView.ExtendedSelection)
         return self.table
     
-    def myTable3(self, a = [], b = [], c = [], d = {}, e ={}):
-        students = list(set(a))
+    def myTable3(self, a, b = [], c = [], d = {}, e ={}):
+        students = a
         subjects = list(set(b))
         subjects.sort()
         assessments = list(set(c))
@@ -3520,8 +4206,8 @@ class Window(QtGui.QMainWindow):
                 self.store_ca_max.update({int(cazn):0})
        
         #build header columns
-        cols = ['id','Sch.No.', 'Fullname', 'Class']
-        colsx = {1:'id', 2:'Sch.No.', 3:'Fullname', 4:'Class'}
+        cols = ['id', 'Class']
+        colsx = {1:'id', 2:'Class'}
         
         
         fnum = 4
@@ -3597,18 +4283,18 @@ class Window(QtGui.QMainWindow):
         
         i = 0
         for j in students:
-            q = list(j)
-            self.table.setItem(i, 0, QtGui.QTableWidgetItem(str(q[0])))
-            self.table.setItem(i, 1, QtGui.QTableWidgetItem(str(q[1])))
-            fullname= q[2]+' '+q[3]
-            self.table.setItem(i, 2, QtGui.QTableWidgetItem(str(fullname.title())))
-            classname= str(q[32])+' '+str(q[31])
-            self.table.setItem(i, 3, QtGui.QTableWidgetItem(str(classname.upper())))
-            j = 4
+            q = j
+            fullname= q['surname']+' '+q['firstname']
+            fullname= q['schno']+': '+str(str(q['surname'])+' '+str(q['firstname'])+' '+str(q['othername'])).title()
+            classname= str(q['classname'])+' '+str(q['classunitname'])
+            self.table.setVerticalHeaderItem(i, QtGui.QTableWidgetItem(fullname))
+            self.table.setItem(i, 0, QtGui.QTableWidgetItem(str(q['id'])))
+            self.table.setItem(i, 1, QtGui.QTableWidgetItem(str(classname.upper())))
+            j = 2
             for f in e:
                 for f1 in e[f]:
                     try:
-                        num = 'AB'+str(q[0])+'CD'+str(f)+'EF'+str(f1)
+                        num = 'AB'+str(q['id'])+'CD'+str(f)+'EF'+str(f1)
                         fac = self.store_ca_max[f1]
                         nu1 = self.d[str(num)]
                         nu = float(fac) * float(nu1)
@@ -3619,11 +4305,12 @@ class Window(QtGui.QMainWindow):
                     j += 1
             i += 1
         
-        self.table.setColumnWidth(1, 50)
-        self.table.setColumnWidth(2, 200)
+        #self.table.setColumnWidth(1, 50)
+        #self.table.setColumnWidth(2, 200)
         self.table.setWordWrap(True)
         self.table.resizeRowsToContents()
         self.table.setSelectionMode(QtGui.QAbstractItemView.SingleSelection)
+        #self.table.setVerticalHeaderItems(0)
         # set data
         self.table.hideColumn(0)
         
@@ -3705,17 +4392,17 @@ class Window(QtGui.QMainWindow):
             
         i = 0
         for j in students:
-            q = list(j)
-            self.table.setItem(i, 0, QtGui.QTableWidgetItem(str(q[0])))
-            self.table.setItem(i, 1, QtGui.QTableWidgetItem(str(q[1])))
-            fullname= q[2]+' '+q[3]
-            self.table.setItem(i, 2, QtGui.QTableWidgetItem(str(fullname.title())))
-            classname= str(q[32])+' '+str(q[31])
-            self.table.setItem(i, 3, QtGui.QTableWidgetItem(str(classname.upper())))
-            j = 4
+            q = j
+            fullname= q['surname']+' '+q['firstname']
+            fullname= q['schno']+': '+str(str(q['surname'])+' '+str(q['firstname'])+' '+str(q['othername'])).title()
+            classname= str(q['classname'])+' '+str(q['classunitname'])
+            self.table.setVerticalHeaderItem(i, QtGui.QTableWidgetItem(fullname))
+            self.table.setItem(i, 0, QtGui.QTableWidgetItem(str(q['id'])))
+            self.table.setItem(i, 1, QtGui.QTableWidgetItem(str(classname.upper())))
+            j = 2
             for f in assessments:
                 try:
-                    num = 'ABC'+str(q[0])+'DEF'+str(f)
+                    num = 'ABC'+str(q['id'])+'DEF'+str(f)
                     fac = self.store_affect_max
                     nu1 = self.d[str(num)]
                     nu = float(fac) * float(nu1)
@@ -3732,7 +4419,6 @@ class Window(QtGui.QMainWindow):
         self.table.setWordWrap(True)
         self.table.resizeRowsToContents()
         self.table.setSelectionMode(QtGui.QAbstractItemView.SingleSelection)
-        
         # set data
         self.table.hideColumn(0)
         self.table.hideRow(0)
@@ -3743,13 +4429,16 @@ class Window(QtGui.QMainWindow):
     
       
     def myTable5(self, a = [], b = [], c = [], d = {}):
-        students = list(set(a))
+        students = a
         psycho = list(set(b))
         psycho.sort()
         psycho_sub = list(set(c))
         psycho_sub.sort()
         self.d = d
-
+        print(a)
+        print(b)
+        print(c)
+        print(d)
         cn = Db()
         #affective
         #get the affective names
@@ -3775,8 +4464,8 @@ class Window(QtGui.QMainWindow):
         self.store_psycho_max = 10
       
         #build header columns
-        cols = ['id','Sch.No.', 'Fullname', 'Class']
-        colsx = ['id','Sch.No.', 'Fullname', 'Class']
+        cols = ['id','Class']
+        colsx = ['id','Class']
         for f in psycho:
                 for f1 in psycho_sub:
                     fin_d = self.store_psycho_name[f].upper()+'\n'+self.store_psycho_sub_name[f1].upper()+' (10)'
@@ -3798,7 +4487,7 @@ class Window(QtGui.QMainWindow):
         self.table.setWindowTitle("Psychomoto Entries")
         self.table.resize(900, 250)
         self.table.setFont(self.tableFont)
-        self.table.setSortingEnabled(2)
+        self.table.setSortingEnabled(0)
         self.table.setRowCount(len(students))
         self.table.setColumnCount(len(cols))
         self.table.setHorizontalHeaderLabels(cols)
@@ -3807,7 +4496,7 @@ class Window(QtGui.QMainWindow):
         self.table.customContextMenuRequested.connect(self.handleHeaderMenu)
         
         self.psycho = psycho
-        self.psy_list = [0, 1, 2, 3]
+        self.psy_list = [0, 1, ]
         
         for f in psycho_sub:
             self.psy_list.append(f)
@@ -3815,17 +4504,17 @@ class Window(QtGui.QMainWindow):
         
         i = 0
         for j in students:
-            q = list(j)
-            self.table.setItem(i, 0, QtGui.QTableWidgetItem(str(q[0])))
-            self.table.setItem(i, 1, QtGui.QTableWidgetItem(str(q[1])))
-            fullname= q[2]+' '+q[3]
-            self.table.setItem(i, 2, QtGui.QTableWidgetItem(str(fullname.title())))
-            classname= str(q[32])+' '+str(q[31])
-            self.table.setItem(i, 3, QtGui.QTableWidgetItem(str(classname.upper())))
-            j = 4
+            q = j
+            fullname= q['surname']+' '+q['firstname']
+            fullname= q['schno']+': '+str(str(q['surname'])+' '+str(q['firstname'])+' '+str(q['othername'])).title()
+            classname= str(q['classname'])+' '+str(q['classunitname'])
+            self.table.setVerticalHeaderItem(i, QtGui.QTableWidgetItem(fullname))
+            self.table.setItem(i, 0, QtGui.QTableWidgetItem(str(q['id'])))
+            self.table.setItem(i, 1, QtGui.QTableWidgetItem(str(classname.upper())))
+            j = 2
             for f in psycho_sub:
                 try:
-                    num = 'ABC'+str(q[0])+'DEF'+str(f)
+                    num = 'ABC'+str(q['id'])+'DEF'+str(f)
                     fac = self.store_psycho_max
                     nu1 = self.d[str(num)]
                     nu = float(fac) * float(nu1)
@@ -3971,8 +4660,7 @@ class Window(QtGui.QMainWindow):
         return arr
     
     def lunchForm(self):
-        self.form = SettingsManager()
-        self.form.show()
+        pass
     
     def lunchSettings(self, x):
         self.form = SettingsManager(x, self)
@@ -3981,6 +4669,10 @@ class Window(QtGui.QMainWindow):
     def reloadSession(self):
         self.r = self.titleToolbar()
         self.r.hide()
+        
+    def lunchStaffForm(self):
+        form = StaffForm()
+        form.show()
         
     def lunchSessionForm(self):
         form = SessionsManager(self)
@@ -4021,58 +4713,460 @@ class Window(QtGui.QMainWindow):
         if(int(c) == 1):
             self.form = StudentTable(a, [None], [None],  ar)
             p = self.form.classUnitStudent()
-            
+        
         return p
     
-    def getStore(self, a):
-        g = Db()
-        term = g.selectn('terms', '', 1, {'id':a})
-        session = g.selectn('session', '', 1, {'id':term['sessionID']})
-        h = Dat()
-        r = h.storesData(session['id'], term['start_date'] , term['end_date'])
-    
-        self.myTableOthers(r,'' 'store')
-    
+    def getSessionDataMin(self):
+        term = self.table_term
+        state = self.table_sub_state
+        start = self.search_from.date().toPyDate()
+        start = time.mktime(start.timetuple())
+        end = self.search_to.date().toPyDate()
+        end = time.mktime(end.timetuple())
+        
+        
+        self.getSessionData(state, term, start, end)
         
     def getSessionData(self, state, terms, start = None, end = None):
         g = Db()
         if terms and terms > 0:
             term = g.selectn('terms', '', 1, {'id':terms})
-            session = g.selectn('session', '', 1, {'id':term['sessionID']})
+            sessionz = g.selectn('session', '', 1, {'id':term['sessionID']})
             session = term['sessionID']
+            sessionName = str(sessionz['name'])
             if start or end:
                 start = start
                 end = end
             else:
                 start = term['start_date']
                 end = term['end_date']
+        
+        self.search_from.setDate(datetime.utcfromtimestamp(float(start)))
+        self.search_to.setDate(datetime.utcfromtimestamp(float(end)))
             
         h = Dat()
-        fromx = datetime.utcfromtimestamp(float(start)).strftime('%d %m %Y')
-        tox = datetime.utcfromtimestamp(float(end)).strftime('%d %m %Y')
+        self.table_session = session
+        self.table_term = terms
+        self.table_sub_state = state
+        fromx = datetime.utcfromtimestamp(float(start)).strftime('%d %b %Y')
+        tox = datetime.utcfromtimestamp(float(end)).strftime('%d %b %Y')
         
         if state == 1:
-            title = 'Expenses '+fromx+' '+tox
+            title = sessionName+' Expenses Report '+fromx+'-'+tox
             r = h.expensesData(session, start , end)
         elif state == 2:
-            title = 'Accounts '+fromx+' '+tox
+            title = sessionName+' Accounts Report '+fromx+'-'+tox
             r = h.accountsData(session, start , end)
         elif state == 3:
-            title = 'Mails '+fromx+' '+tox
+            title = sessionName+' Emails Report '+fromx+'-'+tox
             r = h.mailsData(session, start , end)
         elif state == 4:
-            title = 'Conducts '+fromx+' '+tox
+            title = sessionName+' Conducts/Awards Report '+fromx+'-'+tox
             r = h.conductsData(session, start , end)
         elif state == 5:
-            title = 'Misconducts '+fromx+' '+tox
+            title = sessionName+' Misconducts Report '+fromx+'-'+tox
             r = h.misconductsData(session, start , end)
         elif state == 6:
-            title = 'Stock '+fromx+' '+tox
+            title = sessionName+' Stocks Report '+fromx+'-'+tox
             r = h.storesData(session, start , end)
-            
+        elif state == 7:
+            title = sessionName+' Class Fees Report '+fromx+'-'+tox
+            r = h.storesData(session, start , end)
             
         self.myTableOthers(r, title, state)
     
+    def getSessionDataExp(self):
+        rows = self.mySelectTable()
+        start = self.search_from.date().toPyDate()
+        start = time.mktime(start.timetuple())
+        end = self.search_to.date().toPyDate()
+        end = time.mktime(end.timetuple())
+        state = self.table_sub_state
+        sessionterm = self.table_term
+        session = self.table_session
+        
+        tes = Valid().pullData('terms', 1, {'id':self.table_term})
+        ses = Valid().pullData('session', 1, {'id':tes['sessionID']})
+        t_title = str(ses['name']).upper()+' Session '
+        fromx = datetime.utcfromtimestamp(float(start)).strftime('%d %b %Y')
+        tox = datetime.utcfromtimestamp(float(end)).strftime('%d %b %Y')
+        t_date = ' :'+ fromx +' '+tox
+        
+        h = Dat()
+        if state == 7 or state == 8:
+            r = h.getSubData(rows, state, sessionterm, start, end)
+        else:
+            r = h.getSubData(rows, state, session, start, end)
+        
+        n = 8
+        
+        if r and len(r) > 0:
+            r = r
+        else:
+            r = {}
+       
+        print_header = {}
+        print_body = {}
+        print_footer = {}
+        print_formart = {}
+        
+        header1 =  ['SN','TID', 'DATE',  'EXPENSES', 'ACCOUNT', 'AMOUNT' ]
+        header2 =  ['SN','TID', 'DATE',  'ACCOUNT', 'EXPENSE', 'AMOUNT' ]
+        header3 =  ['SN','TID', 'DATE',  'STUDENT', 'SUBJECT' ]
+        header4 =  ['SN','TID', 'DATE',  'STUDENT', 'ACTION' , 'STAFF/ORGANISATION' ]
+        header5 =  ['SN','TID', 'DATE',  'STUDENT', 'ACTION' , 'STAFF/ORGANISATION' ]
+        header6 =  ['SN','TID', 'DATE',  'ITEM', 'STATE' , 'QUANTITY', 'AMOUNT', 'STAFF/DEPT/ORGANISATION' ]
+        header7 =  ['SN','MAT. NO.', 'NAME','CLASS', 'GENDER',  'FEES', 'PAYMENTS' , 'BALANCE']
+        header8 =  ['SN','MAT. NO.', 'NAME','CLASS', 'GENDER', 'BIRTH DATE', 'NATIONALITY', 'LGA/STATE' , 'ADDRESS', 'FIRST GUARDIAN', 'PHONE NUMBERS', 'SECOND GUARDIAN', 'PHONE NUMBERS', ]
+        tot_amount = []
+        if state == 1:
+            t_title = t_title+' Expenses Report'+t_date
+            heads = header1
+            a0 = 1
+            for a in header1:
+               print_header[a0] = a
+               a0 += 1
+            a1 = 1  
+            for q in r:
+                print_body1 = {}
+                tot_amount.append(q['amount'])
+                print_body1[1] = a1
+                print_body1[2] = str(q['id']).zfill(n)
+                _date = q['datepaid']
+                _date = datetime.utcfromtimestamp(float(_date)).strftime('%d %b %Y')
+                print_body1[3] = _date
+                print_body1[4] = str(q['expensename']).upper()
+                print_body1[5] = str(q['accountname']).upper()
+                print_body1[6] = "{:,}".format(q['amount'])
+                print_body[q['id']] = print_body1
+                a1 = a1 + 1
+                
+            print_formart[1] = 'align="center" style="width:5px"'
+            print_formart[2] = 'align="center" style="width:10px"'
+            print_formart[3] = 'align="center"'
+            print_formart[4] = ''
+            print_formart[5] = ''
+            print_formart[6] = 'align="right"'
+            
+            total = sum(tot_amount)
+            print_footer[1] = ''
+            print_footer[2] = ''
+            print_footer[3] = ''
+            print_footer[4] = ''
+            print_footer[5] = ''
+            print_footer[6] = "{:,}".format(total)
+        elif state == 2:
+            t_title = t_title+' Accounts Report'+t_date
+            self.tabletitle.setText(t_title)
+            heads = header2
+            a0 = 1
+            for a in header2:
+               print_header[a0] = a
+               a0 += 1
+            a1 = 1  
+            for q in r:
+                print_body1 = {}
+                tot_amount.append(q['amount'])
+                print_body1[1] = a1
+                print_body1[2] = str(q['id']).zfill(n)
+                _date = q['datepaid']
+                _date = datetime.utcfromtimestamp(float(_date)).strftime('%d %b %Y')
+                print_body1[3] = _date
+                print_body1[4] = str(q['accountname']).upper()
+                print_body1[5] = str(q['expensename']).upper()
+                print_body1[6] = "{:,}".format(q['amount'])
+                print_body[q['id']] = print_body1
+                a1 = a1 + 1
+            
+            print_formart[1] = 'align="center" width="5px"'
+            print_formart[2] = 'align="center" width="10px"'
+            print_formart[3] = 'align="center"'
+            print_formart[4] = ''
+            print_formart[5] = ''
+            print_formart[6] = 'align="right"'
+            
+            total = sum(tot_amount)
+            print_footer[1] = ''
+            print_footer[2] = ''
+            print_footer[3] = ''
+            print_footer[4] = ''
+            print_footer[5] = ''
+            print_footer[6] = "{:,}".format(total)
+        elif state == 3:
+            t_title = t_title+' Emails'+t_date
+            self.tabletitle.setText(t_title)
+            heads = header3
+            a0 = 1
+            for a in header3:
+               print_header[a0] = a
+               a0 += 1
+            a1 = 1  
+            for q in r:
+                print_body1 = {}
+                
+                print_body1[1] = a1
+                print_body1[2] = str(q['id']).zfill(n)
+                _date = q['datepaid']
+                _date = datetime.utcfromtimestamp(float(_date)).strftime('%d %b %Y')
+                print_body1[3] = _date
+                print_body1[4] = str(q['name']).upper()
+                print_body1[5] = str(q['subject']).upper()
+                print_body[q['id']] = print_body1
+                a1 = a1 + 1
+                
+            print_formart[1] = 'align="center" style="width:2%"'
+            print_formart[2] = 'align="center" style="width:3%"'
+            print_formart[3] = 'align="center"'
+            print_formart[4] = ''
+            print_formart[5] = ''
+            
+
+            print_footer[1] = ''
+            print_footer[2] = ''
+            print_footer[3] = ''
+            print_footer[4] = ''
+            print_footer[5] = ''
+            
+        elif state == 4:
+            t_title = t_title+' Good Conducts '+t_date
+            heads = header4
+            a0 = 1
+            for a in header4:
+               print_header[a0] = a
+               a0 += 1
+            a1 = 1  
+            for q in r:
+                print_body1 = {}
+                
+                print_body1[1] = a1
+                print_body1[2] = str(q['id']).zfill(n)
+                _date = q['datepaid']
+                _date = datetime.utcfromtimestamp(float(_date)).strftime('%d %b %Y')
+                print_body1[3] = _date
+                print_body1[4] = str(q['name']).upper()
+                print_body1[5] = " <b>"+str(q['action']).upper()+" </b><br><i>"+str(q['reaction']).upper()+"</i>"
+                print_body1[6] = str(q['name']).upper()
+                print_body[q['id']] = print_body1
+                a1 = a1 + 1
+                
+            print_formart[1] = 'align="center" style="width:2%"'
+            print_formart[2] = 'align="center" style="width:3%"'
+            print_formart[3] = 'align="center"'
+            print_formart[4] = ''
+            print_formart[5] = ''
+            print_formart[6] = ''
+            
+
+            print_footer[1] = ''
+            print_footer[2] = ''
+            print_footer[3] = ''
+            print_footer[4] = ''
+            print_footer[5] = ''
+            print_footer[6] = ''
+        
+        elif state == 5:
+            t_title = t_title+' Misconduct Report'+t_date
+            self.tabletitle.setText(t_title)
+            heads = header5
+            a0 = 1
+            for a in header5:
+               print_header[a0] = a
+               a0 += 1
+            a1 = 1  
+            for q in r:
+                print_body1 = {}
+                
+                print_body1[1] = a1
+                print_body1[2] = str(q['id']).zfill(n)
+                _date = q['datepaid']
+                _date = datetime.utcfromtimestamp(float(_date)).strftime('%d %b %Y')
+                print_body1[3] = _date
+                print_body1[4] = str(q['name']).upper()
+                print_body1[5] = " <b>"+str(q['action']).upper()+" </b><br><i>"+str(q['reaction']).upper()+"</i>"
+                print_body1[6] = str(q['name']).upper()
+                print_body[q['id']] = print_body1
+                a1 = a1 + 1
+                
+            print_formart[1] = 'align="center" style="width:2%"'
+            print_formart[2] = 'align="center" style="width:3%"'
+            print_formart[3] = 'align="center"'
+            print_formart[4] = ''
+            print_formart[5] = ''
+            print_formart[6] = ''
+            
+
+            print_footer[1] = ''
+            print_footer[2] = ''
+            print_footer[3] = ''
+            print_footer[4] = ''
+            print_footer[5] = ''
+            print_footer[6] = ''
+            
+        elif state == 6:
+            t_title = t_title+' Stocks Report'+t_date
+            self.tabletitle.setText(t_title)
+            heads = header6
+            a0 = 1
+            for a in header6:
+               print_header[a0] = a
+               a0 += 1
+            a1 = 1  
+            st_ar = ['INSTOCK', 'OUTSTOCK', 'BORROWED', 'RETURN', 'DAMAGED' ]
+            for q in r:
+                print_body1 = {}
+                print_body1[1] = a1
+                print_body1[2] = str(q['id']).zfill(n)
+                _date = q['datepaid']
+                _date = datetime.utcfromtimestamp(float(_date)).strftime('%d %b %Y')
+                print_body1[3] = _date
+                print_body1[4] = str(q['name']).upper()
+                print_body1[5] = str(st_ar[q['state'] - 1])
+                print_body1[6] = str(q['quantity']).upper()
+                if q['amount'] :
+                    print_body1[7] = str("{:,}".format(q['amount']))
+                else:
+                    print_body1[7] = str("-.-")
+                print_body1[8] = str(q['person']).upper()
+                print_body[q['id']] = print_body1
+                a1 = a1 + 1
+                
+            print_formart[1] = 'align="center" style="width:2%"'
+            print_formart[2] = 'align="center" style="width:3%"'
+            print_formart[3] = 'align="center"'
+            print_formart[4] = ''
+            print_formart[5] = ''
+            print_formart[6] = 'align="right"'
+            print_formart[7] = 'align="right"'
+            print_formart[8] = ''
+
+            print_footer[1] = ''
+            print_footer[2] = ''
+            print_footer[3] = ''
+            print_footer[4] = ''
+            print_footer[5] = ''
+            print_footer[6] = ''
+            print_footer[7] = ''
+            print_footer[8] = ''
+            
+        elif state == 8:
+            t_title = t_title+" STUDENTS' DATA"
+            self.tabletitle.setText(t_title)
+            heads = header8
+            a0 = 1
+            for a in header8:
+               print_header[a0] = a
+               a0 += 1
+            a1 = 1  
+            for q in r:
+                print_body1 = {}
+                if q['gender'] == 0:
+                    sex = 'Male'
+                else:
+                    sex = 'Female'
+                fg1 = str(q['g1']).title() + '\n('+str(q['g1rel']).capitalize()+') \n'+str(q['g1addr'])+' \n'+str(q['g1email'])
+                fg2 = str(q['g2']).title() + '\n('+str(q['g2rel']).capitalize()+') \n'+str(q['g2addr'])+' \n'+str(q['g2email'])
+            
+                print_body1[1] = a1
+                print_body1[2] = str(q['id'])
+                print_body1[3] = str(q['name']).title()
+                print_body1[4] = str(str(q['ar'])+str(q['ca'])).upper()
+                print_body1[5] = str(q['dob']).capitalize()
+                print_body1[6] = str(q['nation']).capitalize()
+                print_body1[7] = str(q['soo']).capitalize()+'/'+str(q['lga']).capitalize()
+                print_body1[8] = str(q['addr'])
+                print_body1[9] = str(fg1)
+                print_body1[10] = str(q['g1p1'])+' '+str(q['g1p2'])
+                print_body1[11] = str(fg2)
+                print_body1[12] = str(q['g2p1'])+' '+str(q['g2p2'])
+                print_body[a1] = print_body1
+                a1 = a1 + 1
+                
+            print_formart[1] = 'align="center" style="width:2%"'
+            print_formart[2] = 'align="center" style="width:3%"'
+            print_formart[3] = ''
+            print_formart[4] = 'align="center" style="width:3%"'
+            print_formart[5] = ''
+            print_formart[6] = ''
+            print_formart[7] = ''
+            print_formart[8] = ''
+            print_formart[9] = ''
+            print_formart[10] = ''
+            print_formart[11] = ''
+            print_formart[12] = ''
+
+            
+        
+        elif state == 7:
+            t_title = t_title+' Fees/Payments Report'+t_date
+            self.tabletitle.setText(t_title)
+            heads = header7
+            a0 = 1
+            for a in header7:
+               print_header[a0] = a
+               a0 += 1
+            a1 = 1  
+            tot_pay = []
+            tot_fee = []
+            tot_bal = []
+            
+            for q in r:
+                print_body1 = {}
+                if q['pay'] :
+                    pa = q['pay']
+                    tot_pay.append(pa)
+                    pay = str("{:,}".format(q['pay']))
+                else:
+                    pa = 0
+                    pay = str("-.-")
+                    
+                if q['fee'] :
+                    fe = q['fee']
+                    tot_fee.append(fe)
+                    fee = str("{:,}".format(q['fee']))
+                else:
+                    fe = 0
+                    fee = str("-.-")
+                
+                ba = fe - pa
+                tot_bal.append(ba)
+                bal = str("{:,}".format(ba))
+                if q['gender'] == 0:
+                    sex = 'Male'
+                else:
+                    sex = 'Female'
+                    
+                print_body1[1] = a1
+                print_body1[2] = str(q['id'])
+                print_body1[3] = str(q['name']).title()
+                print_body1[4] = str(str(q['ar'])+str(q['ca'])).upper()
+                print_body1[5] = sex
+                print_body1[6] = fee
+                print_body1[7] = pay
+                print_body1[8] = bal
+                print_body[a1] = print_body1
+                a1 = a1 + 1
+                
+            print_formart[1] = 'align="center" style="width:2%"'
+            print_formart[2] = 'align="center" style="width:3%"'
+            print_formart[3] = ''
+            print_formart[4] = 'align="center" style="width:3%"'
+            print_formart[5] = ''
+            print_formart[6] = 'align="right"'
+            print_formart[7] = 'align="right"'
+            print_formart[8] = 'align="right"'
+
+            print_footer[1] = ''
+            print_footer[2] = ''
+            print_footer[3] = ''
+            print_footer[4] = ''
+            print_footer[5] = 'TOTAL'
+            print_footer[6] = str("{:,}".format(sum(tot_fee)))
+            print_footer[7] = str("{:,}".format(sum(tot_pay)))
+            print_footer[8] = str("{:,}".format(sum(tot_bal)))
+        
+        self.form = TableProfile(session, t_title, print_header, print_body, print_footer, print_formart, range(len(heads)))
+        self.form.show()
+        
     def getClassAllStudents(self, a, c):
         if(int(c) == 0):
             self.form = StudentTable(a, [None], [None], [None] )
@@ -4303,6 +5397,22 @@ class Window(QtGui.QMainWindow):
         post = StoreDialog(sid)
         post.show()
         
+    def lunchDataDialog(self):
+        post = DataDialog()
+        post.show()
+        
+    def lunchLogoDialog(self):
+        post = LogoDialog()
+        post.show()
+        
+    def lunchOBackupDialog(self):
+        post = OfflineDialog()
+        post.show()
+    
+    def lunchORestoreDialog(self):
+        post = OfflinerDialog()
+        post.show()
+        
     def lunchPayDialog(self):
         std = self.mySelectTable()
         student = std[0]
@@ -4341,6 +5451,7 @@ class Window(QtGui.QMainWindow):
         if self.post.exec_() == QtGui.QDialog.Accepted:
             rtt = self.post.getValue()
                     
+        #print(rtt[0])
         if(rtt[1] == 0):
             subs = list()
             cas = list()
@@ -4348,8 +5459,10 @@ class Window(QtGui.QMainWindow):
                 subs.append(x)
                 for y in rtt[0][x]:
                     cas.append(y)
+            
             subs = list(set(subs))
             cas =list(set(cas))
+            
             rtt1 = self.getStudentAssessments(_session, student_id, subs, cas)
             
             _arr = {}
@@ -4415,7 +5528,8 @@ class Window(QtGui.QMainWindow):
             for g in rtt1:
                 st = 'ABC'+str(g['studentID'])+'DEF'+str(g['caID'])
                 _arr.update({st:g['score']})
-                        
+             
+            
             self.tabl.close()    
             self.tabl = self.myTable5(studentsIDs,  rtt[0], rtt[1], _arr )
             self.stackRightBar.setCurrentIndex(0)

@@ -199,9 +199,9 @@ class StudentEditForm(QDialog):
         self.g1p1 = QLabel("Phone Number")
         self.g1p1Data = QLineEdit()
         self.g1p1Data.setObjectName("g1p1")
-        if(data['g1p1'] and  len(data['g1p1']) > 1):
+        if(data and  'g1p1' in data):
             tx = data['g1p1'] 
-            self.g1p1Data.setText(tx.title())
+            self.g1p1Data.setText(str(tx))
         else:
             self.g1p1Data.setPlaceholderText("08000000000")
         
@@ -209,9 +209,9 @@ class StudentEditForm(QDialog):
         self.g1p2 = QLabel("Alt. Phone Number")
         self.g1p2Data = QLineEdit()
         self.g1p2Data.setObjectName("g1p2")
-        if(data['g1p2'] and  len(data['g1p2']) > 1):
+        if(data and  'g1p2' in data):
             tx = data['g1p2'] 
-            self.g1p2Data.setText(tx.title())
+            self.g1p2Data.setText(str(tx))
         else:
             self.g1p2Data.setPlaceholderText("08000000000")
         
@@ -221,7 +221,7 @@ class StudentEditForm(QDialog):
         self.g1emailData.setObjectName("g1email")
         if(data['g1email'] and  len(data['g1email']) > 1):
             tx = data['g1email'] 
-            self.g1Data.setText(tx.title())
+            self.g1Data.setText(tx)
         else:
             self.g1Data.setPlaceholderText("info@email.com")
         
@@ -230,7 +230,7 @@ class StudentEditForm(QDialog):
         self.g1addrData.setObjectName("g1add")
         if(data['g1addr'] and len(data['g1addr']) > 1):
             tx = data['g1addr'] 
-            self.g1Data.setText(tx.title())
+            self.g1Data.setText(tx)
         else:
             pass
         
@@ -240,7 +240,7 @@ class StudentEditForm(QDialog):
         self.g2Data.setObjectName("g2name")
         if(data['g2'] and  len(data['g2']) > 1):
             tx = data['g2'] 
-            self.g2Data.setText(tx.title())
+            self.g2Data.setText(str(tx.title()))
         else:
             self.g2Data.setPlaceholderText("Title. Surname Lastname")
             
@@ -257,9 +257,9 @@ class StudentEditForm(QDialog):
         self.g2p1 = QLabel("Phone Number")
         self.g2p1Data = QLineEdit()
         self.g2p1Data.setObjectName("g2p1")
-        if(data['g2p1'] and  len(data['g2p1']) > 1):
+        if(data and  'g2p1' in data):
             tx = data['g2p1'] 
-            self.g2p1Data.setText(tx.title())
+            self.g2p1Data.setText(str(tx))
         else:
             self.g2p1Data.setPlaceholderText("08000000000")
             
@@ -267,9 +267,9 @@ class StudentEditForm(QDialog):
         self.g2p2 = QLabel("Alt. Phone Number")
         self.g2p2Data = QLineEdit()
         self.g2p2Data.setObjectName("g2p2")
-        if(data['g2p2'] and  len(data['g2p2']) > 1):
+        if(data and  'g2p2' in data):
             tx = data['g2p2'] 
-            self.g2p2Data.setText(tx.title())
+            self.g2p2Data.setText(str(tx))
         else:
             self.g2p2Data.setPlaceholderText("0800000000")
             

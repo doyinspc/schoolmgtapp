@@ -18,7 +18,10 @@ class Tables:
      
     def datas(self):
        return  "CREATE TABLE IF NOT EXISTS datas (id integer PRIMARY KEY AUTOINCREMENT, subID int NULL, name text, abbrv text, active boolean NULL) "
-   
+    
+    def staffs(self):
+       return 'CREATE TABLE IF NOT EXISTS staffs (id integer PRIMARY KEY AUTOINCREMENT, empno TEXT, religion TEXT, marital TEXT, noc TEXT, title TEXT, phone1 TEXT, phone2 TEXT, email TEXT, dol TEXT, dolinfo TEXT, reason TEXT, surname TEXT, firstname TEXT, othername TEXT, addr TEXT, gender TEXT, soo TEXT, lga TEXT, nation TEXT, dob TEXT, admit TEXT, g1 TEXT, g2 TEXT, g1rel TEXT, g2rel TEXT, g1p1 TEXT, g1p2 TEXT, g2p1 TEXT, g2p2 TEXT, g1email TEXT, g2email TEXT, g1addr TEXT, g2addr TEXT, active INTEGER, pix TEXT, g1pix TEXT, g2pix TEXT, nin TEXT, tin TEXT, department INTERGER, unit INTERGER, user TEXT , access TEXT , userpassword TEXT, account TEXT, bank TEXT, sort TEXT, pension INTERGER , pensioncode TEXT, health INTERGER, healthcode TEXT, socialcode TEXT)'
+    
     def studentClasz(self, term):
         self.term = term
         if self.term > 0:

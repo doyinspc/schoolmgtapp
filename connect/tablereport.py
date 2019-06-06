@@ -11,49 +11,47 @@ Created on Sat Nov 17 05:44:29 2018
 
 @author: CHARLES
 """
-
 from PyQt4.QtCore import SIGNAL, QDate, Qt, QSize, QSizeF
 from PyQt4.QtGui import  QPrintPreviewDialog, QTextDocument, QPrinter, QLayout, QScrollArea, QMenuBar, QAction, QStackedWidget, QFont, QWidget, QSplitter, QFileDialog, QPixmap, QTabWidget, QComboBox, QRadioButton, QDateEdit, QTextEdit, QCheckBox, QHBoxLayout, QGroupBox, QGridLayout, QDialog, QApplication, QPushButton, QLineEdit, QFormLayout, QLabel, QVBoxLayout, QSizePolicy
 from connect import Db
 from datetime import datetime
 from jinja2 import Template
+import pandas as pd
 
 
 class TableProfile(QDialog):
     
-    def __init__(self, sid,  header, body, footer, formarts, columns, parent=None):
+    def __init__(self, sid, title, header, body, footer, formarts, columns,  parent=None):
         super(TableProfile, self).__init__(parent)
         #page setup
         self.setGeometry(100, 100, 700, 700)
         self.textStyle = "background-color: white; color:black; border: 3px ridge #ccc"
         self.minW = 670
         self.maxW = 700
-        self.sid =sid
+        self.sid = sid
         self.header = header
         self.body = body
         self.footer = footer
         self.formarts = formarts
+        self.title = title
         self.columns = [x + 1 for x in columns]
-        
-        print(columns)
-        self.title = ''
+        self.hold = self.columns
         cn = Db()
         self.myterms = cn.getTermClass(self.sid)
         menu = self.menuUi()
         
         self.h1_box = QVBoxLayout()
         
-        bioText = QTextEdit(self)
-        bioText.setMinimumWidth(self.minW)
-        bioText.setMinimumHeight(self.maxW)
-        bioText.setMaximumHeight(self.maxW)
+        self.bioText = QTextEdit(self)
+        self.bioText.setMinimumWidth(self.minW)
+        self.bioText.setMinimumHeight(self.maxW)
+        self.bioText.setMaximumHeight(self.maxW)
         btext = self.buildBio()
-        bioText.insertHtml(btext)
-        bioText.setStyleSheet(self.textStyle)
-        self.h1_box.addWidget(bioText)
+        self.bioText.insertHtml(btext)
+        self.bioText.setStyleSheet(self.textStyle)
+        self.h1_box.addWidget(self.bioText)
         self.h1_box.setSizeConstraint(QLayout.SetFixedSize)
-        self.doc1 = bioText
-        
+        self.doc1 = self.bioText
         
         scrollArea = QScrollArea(self)
         scrollArea.setWidgetResizable(True)
@@ -77,7 +75,7 @@ class TableProfile(QDialog):
         central_widget.setStyleSheet("background-color: #ccc; color:#000")
         central_widget.setLayout(Hbox)
        
-        self.setWindowTitle('Title')
+        self.setWindowTitle(title)
         self.show()    
         
     def getFile(self, a):
@@ -105,11 +103,49 @@ class TableProfile(QDialog):
     def lunchPrintPreview(self):
         dialog = QPrintPreviewDialog()
         dialog.setContentsMargins(-5,-5,-5,-5)
-        print(dir(dialog))
         dialog.paintRequested.connect(self.handlePaintRequest)
         dialog.exec_()
     
+    def lunchPrintCsv(self):
+        fileName = QFileDialog.getSaveFileName(self, 'Save File as', '', '*.csv')
+        al = {}
+        hed = []
+        head = self.header
+        data = self.body
+        for k in data:
+            row = {}
+            for j in head:
+                row[head[j]] = data[k][j]
+            al[k] = row
+            
+        for j in head:
+           hed.append(head[j])
+        
+        dt = pd.DataFrame.from_dict(al,  orient='index', columns = hed)
+        dt.to_csv(fileName, index=False)
+        
+    def lunchPrintExcel(self):
+        fileName = QFileDialog.getSaveFileName(self, 'Save File as', '', '*.xlsx')
+        al = {}
+        hed = []
+        head = self.header
+        data = self.body
+        for k in data:
+            row = {}
+            for j in head:
+                row[head[j]] = data[k][j]
+            al[k] = row
+            
+        for j in head:
+           hed.append(head[j])
+        
+        dt = pd.DataFrame.from_dict(al,  orient='index', columns = hed)
+        dt.to_excel(fileName, index=False)
+            
+        
+        
     def lunchPrintPdf(self, printer):
+        fileName = QFileDialog.getSaveFileName(self, 'Save File as', '', '*.pdf')
         document = self.doc1
         #document = QTextDocument(document)
         printer = QPrinter()
@@ -117,9 +153,9 @@ class TableProfile(QDialog):
         printer.setPageMargins(5, 5, 5, 5, QPrinter.Millimeter)
         printer.setPageSize(QPrinter.Letter)
         printer.setOutputFormat(QPrinter.PdfFormat)
-        printer.setOutputFileName('jjjjjjjjj.pdf')
-        document.setPageSize(QSizeF(printer.pageRect().size()))
-        print(document.pageSize(), printer.resolution(), printer.pageRect())
+        printer.setOutputFileName(fileName)
+        #document.setPageSize(QSizeF(printer.pageRect().size()))
+        #print(document.pageSize(), printer.resolution(), printer.pageRect())
         document.print_(printer)
        
     
@@ -165,17 +201,46 @@ class TableProfile(QDialog):
         printEXCEL = QAction('&Print EXCEL', self)
         printEXCEL.setShortcut('CTRL+E')
         printEXCEL.setStatusTip('EXCEL')
-        printEXCEL.triggered.connect(self.lunchPrintForm)
+        printEXCEL.triggered.connect(self.lunchPrintExcel)
         printMenu.addAction(printEXCEL)
         
         printCSV = QAction('&Print CSV', self)
         printCSV.setShortcut('CTRL+C')
         printCSV.setStatusTip('PDF')
-        printCSV.triggered.connect(self.lunchPrintForm)
+        printCSV.triggered.connect(self.lunchPrintCsv)
         printMenu.addAction(printCSV)
+        
+        selMenu = mainMenu.addMenu('Column Visibility')
+        self.hold = {}
+        for a in self.header:
+            d =  QAction(self.header[a], self, checkable = True)
+            d.changed.connect(lambda:self.loadPage())
+            self.hold[a] = d
+            if a in self.columns:
+               d.setChecked(True)
+            selMenu.addAction(d)
+            
         return mainMenu
         
-    
+    def loadPage(self):
+        arr = []
+        for a in self.hold:
+            if self.hold[a].isChecked():
+               arr.append(a) 
+               
+        self.columns = arr
+        self.bioText.close()
+        self.bioText = QTextEdit(self)
+        self.bioText.setMinimumWidth(self.minW)
+        self.bioText.setMinimumHeight(self.maxW)
+        self.bioText.setMaximumHeight(self.maxW)
+        btext = self.buildBio()
+        self.bioText.insertHtml(btext)
+        self.bioText.setStyleSheet(self.textStyle)
+        self.h1_box.addWidget(self.bioText)
+        self.h1_box.setSizeConstraint(QLayout.SetFixedSize)
+        self.doc1 = self.bioText
+        
     
     def buildBio(self):       
         table = '''<html><head>
@@ -243,6 +308,11 @@ class TableProfile(QDialog):
         .xcell-10{ width:100px !important;}
         </style>
         <body>
+
+        <div width="100%" style="display:block; margin:0px; padding:0px; color:black" align="center">
+        <h3>{{title | upper}}</h3>
+        </div>
+        
         <table width="100%" cellspacing="0" cellpadding="2px"  style="border-width:1px; border-color: teal; padding:2px; color:black; font-family: Century Gothic">
             <thead>
                 <tr style='background-color:teal; color:white'>
@@ -279,7 +349,7 @@ class TableProfile(QDialog):
         </html>'''
                
        
-        h = Template(table).render(header= self.header, body= self.body, footer = self.footer, formarts = self.formarts, cols = self.columns)
+        h = Template(table).render(header= self.header, body= self.body, footer = self.footer, formarts = self.formarts, cols = self.columns, title = self.title)
         return h
     
     
