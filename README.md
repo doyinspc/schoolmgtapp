@@ -1,0 +1,2 @@
+# schoolmgtapp
+School Management App
